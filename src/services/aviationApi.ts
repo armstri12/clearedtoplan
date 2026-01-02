@@ -256,6 +256,7 @@ export async function getMetar(icao: string): Promise<MetarData | null> {
 
 /**
  * Fetch TAF (Terminal Aerodrome Forecast) data for a given ICAO code
+ * If no TAF is available, attempts to find the nearest airport with a TAF
  * @param icao - 4-letter ICAO airport code (e.g., 'KJFK')
  * @returns TAF data or null if unavailable
  */
@@ -287,6 +288,48 @@ export async function getTaf(icao: string): Promise<TafData | null> {
     return normalizeTaf(data[0]);
   } catch (error) {
     console.error('Error fetching TAF data:', error);
+    return null;
+  }
+}
+
+/**
+ * Fetch nearest TAF when primary airport doesn't have one
+ * Uses radial search around the METAR location
+ * @param icao - 4-letter ICAO airport code
+ * @returns TAF data from nearest airport or null
+ */
+export async function getNearestTaf(icao: string): Promise<TafData | null> {
+  if (!WORKER_URL) {
+    return null;
+  }
+
+  try {
+    // First get METAR to get coordinates
+    const metar = await getMetar(icao);
+    if (!metar || !metar.elevation) {
+      return null;
+    }
+
+    // Try to get TAF within a radius (using radialDistance parameter)
+    // This searches for TAFs within ~50nm of the airport
+    const url = `${WORKER_URL}/taf?radialDistance=50;${icao.toUpperCase()}&format=json`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data: AvWxTafRaw[] = await response.json();
+
+    if (!data || data.length === 0) {
+      return null;
+    }
+
+    // Return the first (nearest) TAF found
+    const nearestTaf = normalizeTaf(data[0]);
+    return nearestTaf;
+  } catch (error) {
+    console.error('Error fetching nearest TAF:', error);
     return null;
   }
 }
