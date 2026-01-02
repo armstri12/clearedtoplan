@@ -1,8 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { localDb } from '../../lib/storage/localDb';
+import { localDb, type WBScenario } from '../../lib/storage/localDb';
 import type { AircraftProfile, Station } from '../aircraft/types';
 import { assistEnvelope, diagnoseEnvelope } from '../../lib/math/envelope';
 import { round, clamp, validatePassengerWeight, checkFuelReserve } from '../../lib/utils';
+
+function makeId(prefix = 'scenario') {
+  return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
+}
 
 
 type LoadItem = {
@@ -423,12 +427,74 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
 
   const [activeCategory, setActiveCategory] = useState<'normal' | 'utility'>('normal');
 
+  // Scenario management
+  const [scenarios, setScenarios] = useState<WBScenario[]>([]);
+  const [scenarioName, setScenarioName] = useState<string>('');
+  const [showSaveDialog, setShowSaveDialog] = useState<boolean>(false);
 
   useEffect(() => {
     const p = loadProfiles();
     setProfiles(p);
     if (p.length > 0) setSelectedId(p[0].id);
+
+    // Load scenarios
+    const s = localDb.getWBScenarios();
+    setScenarios(s);
   }, []);
+
+  function saveScenario() {
+    if (!scenarioName.trim()) {
+      alert('Please enter a scenario name');
+      return;
+    }
+    if (!selectedId) {
+      alert('Please select an aircraft first');
+      return;
+    }
+
+    const scenario: WBScenario = {
+      id: makeId('scenario'),
+      name: scenarioName.trim(),
+      aircraftId: selectedId,
+      frontLb,
+      rearLb,
+      baggageByStation,
+      startFuelGal,
+      taxiFuelGal,
+      plannedBurnGal,
+      createdAt: new Date().toISOString(),
+    };
+
+    const updated = [...scenarios, scenario];
+    setScenarios(updated);
+    localDb.setWBScenarios(updated);
+    setScenarioName('');
+    setShowSaveDialog(false);
+  }
+
+  function loadScenario(scenario: WBScenario) {
+    // Only load if same aircraft
+    if (scenario.aircraftId !== selectedId) {
+      if (!confirm(`This scenario is for a different aircraft. Load anyway?`)) {
+        return;
+      }
+      setSelectedId(scenario.aircraftId);
+    }
+
+    setFrontLb(scenario.frontLb);
+    setRearLb(scenario.rearLb);
+    setBaggageByStation(scenario.baggageByStation);
+    setStartFuelGal(scenario.startFuelGal);
+    setTaxiFuelGal(scenario.taxiFuelGal);
+    setPlannedBurnGal(scenario.plannedBurnGal);
+  }
+
+  function deleteScenario(id: string) {
+    if (!confirm('Delete this scenario?')) return;
+    const updated = scenarios.filter((s) => s.id !== id);
+    setScenarios(updated);
+    localDb.setWBScenarios(updated);
+  }
 
   const profile = useMemo(
     () => profiles.find((p) => p.id === selectedId),
@@ -701,7 +767,7 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
 <div className="print-only" style={{ marginBottom: 12 }}>
   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
     <div>
-      <div style={{ fontWeight: 900 }}>Clear to Plan — Weight & Balance</div>
+      <div style={{ fontWeight: 900 }}>Cleared To Plan — Weight & Balance</div>
       <div>Tail: <b>{profile.tailNumber}</b> — {profile.makeModel}</div>
     </div>
     <div style={{ textAlign: 'right' }}>
@@ -737,6 +803,133 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
             </option>
           ))}
         </select>
+      </div>
+
+      {/* Scenario Management */}
+      <div style={{ marginTop: 16, padding: 16, border: '1px solid #ddd', borderRadius: 12, background: '#fafafa' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <h3 style={{ margin: 0, fontSize: 16 }}>💾 Saved Scenarios</h3>
+          <button
+            onClick={() => setShowSaveDialog(!showSaveDialog)}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 8,
+              background: '#2563eb',
+              color: '#fff',
+              border: 'none',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            {showSaveDialog ? 'Cancel' : '+ Save Current'}
+          </button>
+        </div>
+
+        {showSaveDialog && (
+          <div style={{ marginBottom: 12, padding: 12, border: '1px solid #2563eb', borderRadius: 8, background: '#eff6ff' }}>
+            <label htmlFor="scenario-name" style={{ fontSize: 14, fontWeight: 700, display: 'block', marginBottom: 6 }}>
+              Scenario Name
+            </label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                id="scenario-name"
+                type="text"
+                value={scenarioName}
+                onChange={(e) => setScenarioName(e.target.value)}
+                placeholder="e.g., Solo training, Family trip with bags"
+                style={{ flex: 1, padding: 8, borderRadius: 8, border: '1px solid #ddd' }}
+                onKeyDown={(e) => e.key === 'Enter' && saveScenario()}
+              />
+              <button
+                onClick={saveScenario}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 8,
+                  background: '#16a34a',
+                  color: '#fff',
+                  border: 'none',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        )}
+
+        {scenarios.length === 0 ? (
+          <div style={{ fontSize: 14, opacity: 0.7, fontStyle: 'italic' }}>
+            No saved scenarios yet. Click "+ Save Current" to save your current configuration.
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {scenarios
+              .filter((s) => s.aircraftId === selectedId)
+              .map((scenario) => (
+                <div
+                  key={scenario.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: 12,
+                    border: '1px solid #e5e7eb',
+                    borderRadius: 8,
+                    background: '#fff',
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{scenario.name}</div>
+                    <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>
+                      Front: {scenario.frontLb} lb | Rear: {scenario.rearLb} lb | Fuel: {scenario.startFuelGal} gal
+                    </div>
+                    <div style={{ fontSize: 11, opacity: 0.6, marginTop: 2 }}>
+                      Saved: {new Date(scenario.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      onClick={() => loadScenario(scenario)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: 6,
+                        background: '#2563eb',
+                        color: '#fff',
+                        border: 'none',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Load
+                    </button>
+                    <button
+                      onClick={() => deleteScenario(scenario.id)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: 6,
+                        background: '#dc2626',
+                        color: '#fff',
+                        border: 'none',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                      title="Delete scenario"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+            {scenarios.filter((s) => s.aircraftId === selectedId).length === 0 && (
+              <div style={{ fontSize: 14, opacity: 0.7, fontStyle: 'italic' }}>
+                No scenarios for this aircraft. Switch to another aircraft or save a new scenario.
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Station max warnings (B) */}

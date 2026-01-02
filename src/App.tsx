@@ -9,11 +9,18 @@ import PerformancePage from './features/performance/PerformancePage';
 function Home() {
   return (
     <div>
-      <h1>Clear to Plan</h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
+        <img
+          src="/images/logo.png"
+          alt="Cleared To Plan Logo"
+          style={{ width: 120, height: 'auto' }}
+        />
+        <h1 style={{ margin: 0 }}>Cleared To Plan</h1>
+      </div>
       <p>Weight &amp; Balance and Navlog planning for general aviation.</p>
       <ul>
         <li>Build aircraft profiles</li>
-        <li>Run weight &amp; balance scenarios</li>
+        <li>Save &amp; load weight &amp; balance scenarios</li>
         <li>Calculate density altitude &amp; performance</li>
         <li>Plan cross-country navlogs</li>
       </ul>
@@ -30,9 +37,14 @@ function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div style={{ maxWidth: 960, margin: '0 auto', padding: 24, fontFamily: 'system-ui' }}>
-      <header style={{ display: 'flex', alignItems: 'baseline', gap: 16, marginBottom: 16 }}>
-        <div style={{ fontSize: 18, fontWeight: 800 }}>Clear to Plan</div>
-        <nav>
+      <header style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
+        <img
+          src="/images/logo.png"
+          alt="Cleared To Plan"
+          style={{ width: 50, height: 'auto' }}
+        />
+        <div style={{ fontSize: 18, fontWeight: 800 }}>Cleared To Plan</div>
+        <nav style={{ marginLeft: 'auto' }}>
           <NavLink to="/" style={linkStyle} end>
             Home
           </NavLink>
