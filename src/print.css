@@ -1,0 +1,37 @@
+/* Default (screen) */
+.print-only {
+  display: none !important;
+}
+.no-print {
+  display: initial !important;
+}
+
+/* Print */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: inline !important;
+  }
+
+  nav,
+  header {
+    display: none !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  @page {
+    margin: 0.5in;
+  }
+
+  .print-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
