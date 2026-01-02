@@ -2,6 +2,7 @@ import { NavLink, Route, Routes } from 'react-router-dom';
 import AircraftPage from './features/aircraft/AircraftPage';
 import WeightBalancePage from './features/weightBalance/WeightBalancePage';
 import NavlogPage from './features/navlog/NavlogPage';
+import PerformancePage from './features/performance/PerformancePage';
 
 
 
@@ -13,6 +14,7 @@ function Home() {
       <ul>
         <li>Build aircraft profiles</li>
         <li>Run weight &amp; balance scenarios</li>
+        <li>Calculate density altitude &amp; performance</li>
         <li>Plan cross-country navlogs</li>
       </ul>
     </div>
@@ -39,6 +41,9 @@ function Layout({ children }: { children: React.ReactNode }) {
           </NavLink>
           <NavLink to="/wb" style={linkStyle}>
             W&amp;B
+          </NavLink>
+          <NavLink to="/performance" style={linkStyle}>
+            Performance
           </NavLink>
           <NavLink to="/navlog" style={linkStyle}>
             Navlog
@@ -71,6 +76,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/aircraft" element={<AircraftPage />} />
         <Route path="/wb" element={<WeightBalancePage />} />
+        <Route path="/performance" element={<PerformancePage />} />
         <Route path="/navlog" element={<NavlogPage />} />
       </Routes>
     </Layout>
