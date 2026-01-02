@@ -1,21 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
-import { localDb } from '../../lib/storage/localDb';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { localDb, type StorageError } from '../../lib/storage/localDb';
 import { makeId } from './id';
 import type { AircraftProfile, Station} from './types';
 import { assistEnvelope } from '../../lib/math/envelope';
+import { toNumber as toNum, validateWeight } from '../../lib/utils';
 
 
 function nowIso() {
   return new Date().toISOString();
 }
-
-function toNumber(value: string): number | undefined {
-  const v = value.trim();
-  if (!v) return undefined;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : undefined;
-}
-
 
 function loadProfiles(): AircraftProfile[] {
   const raw = localDb.getAircraftProfiles();
@@ -24,8 +17,8 @@ function loadProfiles(): AircraftProfile[] {
   return raw as AircraftProfile[];
 }
 
-function saveProfiles(next: AircraftProfile[]) {
-  localDb.setAircraftProfiles(next);
+function saveProfiles(next: AircraftProfile[]): StorageError | null {
+  return localDb.setAircraftProfiles(next);
 }
 
 const defaultStations: Station[] = [
@@ -64,13 +57,19 @@ export default function AircraftPage() {
   const [selectedId, setSelectedId] = useState<string>('');
   const [draft, setDraft] = useState<AircraftProfile>(() => blankProfile());
   const [status, setStatus] = useState<string>('');
+  const [storageError, setStorageError] = useState<StorageError | null>(null);
   const [envelopeCategory, setEnvelopeCategory] = useState<'normal' | 'utility'>('normal');
 
+  // Track if migration has been performed for current profile to avoid re-running on every draft change
+  const migrationDoneRef = useRef<Set<string>>(new Set());
+
+  // One-time migration from legacy cgEnvelope to cgEnvelopes.normal
   useEffect(() => {
     const legacyLen = draft.cgEnvelope?.points?.length ?? 0;
     const normalLen = draft.cgEnvelopes?.normal?.points?.length ?? 0;
-  
-    if (normalLen === 0 && legacyLen > 0) {
+
+    if (normalLen === 0 && legacyLen > 0 && !migrationDoneRef.current.has(draft.id)) {
+      migrationDoneRef.current.add(draft.id);
       updateDraft({
         cgEnvelopes: {
           ...(draft.cgEnvelopes ?? {}),
@@ -78,7 +77,7 @@ export default function AircraftPage() {
         },
       });
     }
-  }, [draft.cgEnvelope, draft.cgEnvelopes]);
+  }, [draft.id, draft.cgEnvelope, draft.cgEnvelopes]);
   
   
 
@@ -106,11 +105,13 @@ export default function AircraftPage() {
   }
 
   function updateEmptyWeight(field: 'weightLb' | 'momentLbIn', value: number) {
-    updateDraft({ emptyWeight: { ...draft.emptyWeight, [field]: value } });
+    const validated = field === 'weightLb' ? validateWeight(value) : value;
+    updateDraft({ emptyWeight: { ...draft.emptyWeight, [field]: validated } });
   }
 
   function updateLimits(field: 'maxRampLb' | 'maxTakeoffLb' | 'maxLandingLb', value?: number) {
-    updateDraft({ limits: { ...draft.limits, [field]: value } });
+    const validated = value !== undefined ? validateWeight(value) : undefined;
+    updateDraft({ limits: { ...draft.limits, [field]: validated } });
   }
 
   function updateFuel(field: 'usableGal' | 'densityLbPerGal', value: number) {
@@ -203,49 +204,105 @@ export default function AircraftPage() {
       setStatus('Tail number is required.');
       return;
     }
-  
+
     // Normalize/migrate on save: legacy cgEnvelope -> cgEnvelopes.normal
     const normalized: AircraftProfile = (() => {
       const next = { ...draft };
-  
+
       const legacy = next.cgEnvelope?.points ?? [];
       const normalPts = next.cgEnvelopes?.normal?.points ?? [];
-  
+
       if (normalPts.length === 0 && legacy.length > 0) {
         next.cgEnvelopes = {
           ...(next.cgEnvelopes ?? {}),
           normal: { points: legacy },
         };
       }
-  
+
       // Now that categories are live, stop persisting legacy (recommended)
       next.cgEnvelope = undefined;
-  
+
       return next;
     })();
-  
+
     const exists = profiles.some((p) => p.id === normalized.id);
     const next = exists
       ? profiles.map((p) => (p.id === normalized.id ? normalized : p))
       : [normalized, ...profiles];
-  
+
     setProfiles(next);
-    saveProfiles(next);
+    const error = saveProfiles(next);
+    if (error) {
+      setStorageError(error);
+      setStatus(`Error saving: ${error.message}`);
+      return;
+    }
+    setStorageError(null);
     setSelectedId(normalized.id);
     setDraft(normalized);
     setStatus('Saved.');
   }
-  
-  
 
   function deleteSelected() {
     if (!selectedId) return;
     const next = profiles.filter((p) => p.id !== selectedId);
     setProfiles(next);
-    saveProfiles(next);
+    const error = saveProfiles(next);
+    if (error) {
+      setStorageError(error);
+      setStatus(`Error deleting: ${error.message}`);
+      return;
+    }
+    setStorageError(null);
     setSelectedId(next[0]?.id ?? '');
     setDraft(next[0] ?? blankProfile());
     setStatus('Deleted.');
+  }
+
+  function exportData() {
+    try {
+      const dataStr = localDb.exportData();
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `clear-to-plan-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setStatus('Data exported successfully.');
+    } catch (err) {
+      setStatus('Failed to export data.');
+    }
+  }
+
+  function importData() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        const result = localDb.importData(text);
+        if (result.success) {
+          const loaded = loadProfiles();
+          setProfiles(loaded);
+          if (loaded.length > 0) {
+            setSelectedId(loaded[0].id);
+            setDraft(loaded[0]);
+          }
+          setStatus('Data imported successfully.');
+          setStorageError(null);
+        } else {
+          setStatus(`Import failed: ${result.error}`);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
   }
 
   return (
@@ -256,13 +313,37 @@ export default function AircraftPage() {
         limits.
       </p>
 
+      {storageError && storageError.type === 'quota_exceeded' && (
+        <div
+          style={{
+            marginTop: 12,
+            padding: 12,
+            border: '2px solid #f59e0b',
+            borderRadius: 12,
+            background: '#fffbeb',
+          }}
+        >
+          <div style={{ fontWeight: 900, marginBottom: 6 }}>⚠️ Storage Warning</div>
+          <div style={{ fontSize: 14 }}>{storageError.message}</div>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16, marginTop: 16 }}>
         <div style={{ border: '1px solid #ddd', borderRadius: 12, padding: 12 }}>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
             <button onClick={newProfile}>New</button>
             <button onClick={saveCurrent}>Save</button>
-            <button onClick={deleteSelected} disabled={!selectedId}>
+            <button onClick={deleteSelected} disabled={!selectedId} aria-label="Delete selected profile">
               Delete
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+            <button onClick={exportData} aria-label="Export all data to JSON file">
+              Export
+            </button>
+            <button onClick={importData} aria-label="Import data from JSON file">
+              Import
             </button>
           </div>
 
@@ -316,74 +397,88 @@ export default function AircraftPage() {
             <div>
               <label>Empty weight (lb)</label>
               <input
+                id="empty-weight"
                 value={String(draft.emptyWeight.weightLb)}
                 onChange={(e) =>
-                  updateEmptyWeight('weightLb', toNumber(e.target.value) ?? 0)
+                  updateEmptyWeight('weightLb', toNum(e.target.value) ?? 0)
                 }
                 inputMode="decimal"
                 style={{ width: '100%', padding: 8, borderRadius: 8 }}
+                aria-label="Empty weight in pounds"
               />
             </div>
 
             <div>
-              <label>Empty moment (lb-in)</label>
+              <label htmlFor="empty-moment">Empty moment (lb-in)</label>
               <input
+                id="empty-moment"
                 value={String(draft.emptyWeight.momentLbIn)}
                 onChange={(e) =>
-                  updateEmptyWeight('momentLbIn', toNumber(e.target.value) ?? 0)
+                  updateEmptyWeight('momentLbIn', toNum(e.target.value) ?? 0)
                 }
                 inputMode="decimal"
                 style={{ width: '100%', padding: 8, borderRadius: 8 }}
+                aria-label="Empty moment in pound-inches"
               />
             </div>
 
             <div>
-              <label>Max ramp (lb)</label>
+              <label htmlFor="max-ramp">Max ramp (lb)</label>
               <input
+                id="max-ramp"
                 value={draft.limits.maxRampLb ?? ''}
-                onChange={(e) => updateLimits('maxRampLb', toNumber(e.target.value))}
+                onChange={(e) => updateLimits('maxRampLb', toNum(e.target.value))}
                 inputMode="decimal"
                 style={{ width: '100%', padding: 8, borderRadius: 8 }}
+                aria-label="Maximum ramp weight in pounds"
               />
             </div>
 
             <div>
-              <label>Max takeoff (lb)</label>
+              <label htmlFor="max-takeoff">Max takeoff (lb)</label>
               <input
+                id="max-takeoff"
                 value={draft.limits.maxTakeoffLb ?? ''}
-                onChange={(e) => updateLimits('maxTakeoffLb', toNumber(e.target.value))}
+                onChange={(e) => updateLimits('maxTakeoffLb', toNum(e.target.value))}
                 inputMode="decimal"
                 style={{ width: '100%', padding: 8, borderRadius: 8 }}
+                aria-label="Maximum takeoff weight in pounds"
               />
             </div>
 
             <div>
-              <label>Max landing (lb)</label>
+              <label htmlFor="max-landing">Max landing (lb)</label>
               <input
+                id="max-landing"
                 value={draft.limits.maxLandingLb ?? ''}
-                onChange={(e) => updateLimits('maxLandingLb', toNumber(e.target.value))}
+                onChange={(e) => updateLimits('maxLandingLb', toNum(e.target.value))}
                 inputMode="decimal"
                 style={{ width: '100%', padding: 8, borderRadius: 8 }}
+                aria-label="Maximum landing weight in pounds"
               />
             </div>
 
             <div>
-              <label>Usable fuel (gal)</label>
+              <label htmlFor="usable-fuel">Usable fuel (gal)</label>
               <input
+                id="usable-fuel"
                 value={String(draft.fuel.usableGal)}
-                onChange={(e) => updateFuel('usableGal', toNumber(e.target.value) ?? 0)}
+                onChange={(e) => updateFuel('usableGal', toNum(e.target.value) ?? 0)}
                 inputMode="decimal"
                 style={{ width: '100%', padding: 8, borderRadius: 8 }}
+                aria-label="Usable fuel in gallons"
               />
             </div>
 
             <div>
-              <label>Fuel density (lb/gal)</label>
+              <label htmlFor="fuel-density">Fuel density (lb/gal)</label>
               <input
+                id="fuel-density"
                 value={String(draft.fuel.densityLbPerGal)}
                 onChange={(e) =>
-                  updateFuel('densityLbPerGal', toNumber(e.target.value) ?? 6.0)
+                  updateFuel('densityLbPerGal', toNum(e.target.value) ?? 6.0)
                 }
+                aria-label="Fuel density in pounds per gallon"
                 inputMode="decimal"
                 style={{ width: '100%', padding: 8, borderRadius: 8 }}
               />
@@ -422,26 +517,33 @@ export default function AircraftPage() {
                   value={s.name}
                   onChange={(e) => updateStation(s.id, { name: e.target.value })}
                   style={{ padding: 8, borderRadius: 8 }}
+                  aria-label={`Station name: ${s.name}`}
                 />
                 <input
                   value={String(s.armIn)}
                   onChange={(e) =>
-                    updateStation(s.id, { armIn: toNumber(e.target.value) ?? 0 })
+                    updateStation(s.id, { armIn: toNum(e.target.value) ?? 0 })
                   }
                   inputMode="decimal"
                   placeholder="Arm (in)"
                   style={{ padding: 8, borderRadius: 8 }}
+                  aria-label={`Arm for ${s.name} in inches`}
                 />
                 <input
                   value={s.maxWeightLb ?? ''}
                   onChange={(e) =>
-                    updateStation(s.id, { maxWeightLb: toNumber(e.target.value) })
+                    updateStation(s.id, { maxWeightLb: toNum(e.target.value) })
                   }
                   inputMode="decimal"
                   placeholder="Max lb"
                   style={{ padding: 8, borderRadius: 8 }}
+                  aria-label={`Maximum weight for ${s.name} in pounds`}
                 />
-                <button onClick={() => removeStation(s.id)} title="Remove station">
+                <button
+                  onClick={() => removeStation(s.id)}
+                  title="Remove station"
+                  aria-label={`Remove station ${s.name}`}
+                >
                   ✕
                 </button>
               </div>

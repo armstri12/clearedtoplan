@@ -19,11 +19,6 @@ function Home() {
   );
 }
 
-
-function Navlog() {
-  return <h2>Navlog (coming next)</h2>;
-}
-
 function Layout({ children }: { children: React.ReactNode }) {
   const linkStyle = ({ isActive }: { isActive: boolean }) => ({
     marginRight: 12,

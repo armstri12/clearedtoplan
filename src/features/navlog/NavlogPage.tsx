@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
+import { clamp } from '../../lib/utils';
 
 
 type VarDir = 'E' | 'W';
@@ -48,10 +49,6 @@ function makeId(prefix = 'leg') {
 function toNum(s: string) {
   const x = Number(s);
   return Number.isFinite(x) ? x : 0;
-}
-
-function clamp(x: number, a: number, b: number) {
-  return Math.max(a, Math.min(b, x));
 }
 
 function norm360(x: number) {
@@ -160,10 +157,6 @@ export default function NavlogPage() {
         devDeg: '',
       },
     ]);
-  }
-
-  function removeLeg(id: string) {
-    setLegs((prev) => prev.filter((l) => l.id !== id));
   }
 
   function updateLeg(id: string, patch: Partial<Leg>) {
@@ -279,11 +272,6 @@ export default function NavlogPage() {
 
   const tdCenter: CSSProperties = { ...tdBase, textAlign: 'center' };
   const tdRight: CSSProperties = { ...tdBase, textAlign: 'right' };
-
-  const cellText: CSSProperties = {
-    display: 'inline-block',
-    minWidth: 20,
-  };
 
   const cellInput: CSSProperties = {
     ...cellInputStyle,
