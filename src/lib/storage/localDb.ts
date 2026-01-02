@@ -1,7 +1,21 @@
-const KEY = 'clear-to-plan:v1';
+const KEY = 'cleared-to-plan:v1';
+
+export type WBScenario = {
+  id: string;
+  name: string;
+  aircraftId: string;
+  frontLb: number;
+  rearLb: number;
+  baggageByStation: Record<string, number>;
+  startFuelGal: string;
+  taxiFuelGal: string;
+  plannedBurnGal: string;
+  createdAt: string;
+};
 
 export type DbShape = {
   aircraftProfiles: unknown[];
+  wbScenarios?: WBScenario[];
 };
 
 export type StorageError = {
@@ -14,18 +28,21 @@ let lastError: StorageError | null = null;
 function readRaw(): DbShape {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return { aircraftProfiles: [] };
+    if (!raw) return { aircraftProfiles: [], wbScenarios: [] };
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') {
       lastError = {
         type: 'parse_error',
         message: 'Stored data is corrupted. Starting fresh.'
       };
-      return { aircraftProfiles: [] };
+      return { aircraftProfiles: [], wbScenarios: [] };
     }
     return {
       aircraftProfiles: Array.isArray((parsed as any).aircraftProfiles)
         ? (parsed as any).aircraftProfiles
+        : [],
+      wbScenarios: Array.isArray((parsed as any).wbScenarios)
+        ? (parsed as any).wbScenarios
         : [],
     };
   } catch (err) {
@@ -34,7 +51,7 @@ function readRaw(): DbShape {
       type: err instanceof Error && err.name === 'SecurityError' ? 'privacy_mode' : 'unknown',
       message: `Failed to load data: ${message}`
     };
-    return { aircraftProfiles: [] };
+    return { aircraftProfiles: [], wbScenarios: [] };
   }
 }
 
@@ -91,6 +108,17 @@ export const localDb = {
     return writeRaw(db);
   },
 
+  getWBScenarios(): WBScenario[] {
+    const scenarios = readRaw().wbScenarios || [];
+    return scenarios as WBScenario[];
+  },
+
+  setWBScenarios(scenarios: WBScenario[]): StorageError | null {
+    const db = readRaw();
+    db.wbScenarios = scenarios;
+    return writeRaw(db);
+  },
+
   getLastError(): StorageError | null {
     return lastError;
   },
@@ -112,7 +140,8 @@ export const localDb = {
       }
 
       const db: DbShape = {
-        aircraftProfiles: Array.isArray(parsed.aircraftProfiles) ? parsed.aircraftProfiles : []
+        aircraftProfiles: Array.isArray(parsed.aircraftProfiles) ? parsed.aircraftProfiles : [],
+        wbScenarios: Array.isArray(parsed.wbScenarios) ? parsed.wbScenarios : []
       };
 
       const writeError = writeRaw(db);
