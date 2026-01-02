@@ -34,7 +34,7 @@ export const AVIATION_LIMITS = {
   // Weight limits (pounds)
   MIN_WEIGHT: 0,
   MAX_WEIGHT: 100000,
-  MAX_PASSENGER_WEIGHT: 400,
+  MAX_PASSENGER_WEIGHT: 700,
 
   // Altitude limits (feet)
   MIN_ALTITUDE: -1000, // Below sea level (e.g., Death Valley)

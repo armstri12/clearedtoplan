@@ -984,7 +984,7 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
       id="front-seats-weight"
       type="number"
       min="0"
-      max="400"
+      max="700"
       value={frontLb}
       onChange={(e) => setFrontLb(validatePassengerWeight(Number(e.target.value) || 0))}
       inputMode="decimal"
@@ -999,7 +999,7 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
       id="rear-seats-weight"
       type="number"
       min="0"
-      max="400"
+      max="700"
       value={rearLb}
       onChange={(e) => setRearLb(validatePassengerWeight(Number(e.target.value) || 0))}
       inputMode="decimal"
