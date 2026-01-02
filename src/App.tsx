@@ -3,6 +3,7 @@ import AircraftPage from './features/aircraft/AircraftPage';
 import WeightBalancePage from './features/weightBalance/WeightBalancePage';
 import NavlogPage from './features/navlog/NavlogPage';
 import PerformancePage from './features/performance/PerformancePage';
+import WeatherPage from './features/weather/WeatherPage';
 
 
 
@@ -22,6 +23,7 @@ function Home() {
         <li>Build aircraft profiles</li>
         <li>Save &amp; load weight &amp; balance scenarios</li>
         <li>Calculate density altitude &amp; performance</li>
+        <li>Get real-time weather briefings (METAR &amp; TAF)</li>
         <li>Plan cross-country navlogs</li>
       </ul>
     </div>
@@ -57,6 +59,9 @@ function Layout({ children }: { children: React.ReactNode }) {
           <NavLink to="/performance" style={linkStyle}>
             Performance
           </NavLink>
+          <NavLink to="/weather" style={linkStyle}>
+            Weather
+          </NavLink>
           <NavLink to="/navlog" style={linkStyle}>
             Navlog
           </NavLink>
@@ -89,6 +94,7 @@ export default function App() {
         <Route path="/aircraft" element={<AircraftPage />} />
         <Route path="/wb" element={<WeightBalancePage />} />
         <Route path="/performance" element={<PerformancePage />} />
+        <Route path="/weather" element={<WeatherPage />} />
         <Route path="/navlog" element={<NavlogPage />} />
       </Routes>
     </Layout>
