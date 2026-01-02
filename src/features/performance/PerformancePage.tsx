@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { getMetar, parseIcaoCode, type MetarData } from '../../services/aviationApi';
 
 // Standard atmosphere constants
 const ISA_SEA_LEVEL_TEMP_C = 15; // °C
@@ -83,6 +84,49 @@ export default function PerformancePage() {
   const [tempUnit, setTempUnit] = useState<'C' | 'F'>('F');
   const [temperature, setTemperature] = useState<string>('80');
 
+  // Weather API integration
+  const [icaoInput, setIcaoInput] = useState<string>('');
+  const [metar, setMetar] = useState<MetarData | null>(null);
+  const [isLoadingWeather, setIsLoadingWeather] = useState<boolean>(false);
+  const [weatherError, setWeatherError] = useState<string>('');
+
+  async function fetchWeather() {
+    const icao = parseIcaoCode(icaoInput);
+    if (!icao) {
+      setWeatherError('Please enter a valid 4-letter ICAO code (e.g., KJFK)');
+      return;
+    }
+
+    setIsLoadingWeather(true);
+    setWeatherError('');
+    setMetar(null);
+
+    const data = await getMetar(icao);
+
+    setIsLoadingWeather(false);
+
+    if (!data) {
+      setWeatherError(`No weather data available for ${icao}. Check the ICAO code and try again.`);
+      return;
+    }
+
+    setMetar(data);
+
+    // Auto-populate fields from METAR
+    if (data.barometer?.hg) {
+      setAltimeter(data.barometer.hg.toFixed(2));
+    }
+
+    if (data.temperature) {
+      const tempValue = tempUnit === 'F' ? data.temperature.fahrenheit : data.temperature.celsius;
+      setTemperature(String(Math.round(tempValue)));
+    }
+
+    if (data.elevation?.feet && inputMode === 'calculated') {
+      setFieldElevation(String(Math.round(data.elevation.feet)));
+    }
+  }
+
   const results = useMemo(() => {
     const fieldElev = Number(fieldElevation) || 0;
     const altim = Number(altimeter) || 29.92;
@@ -130,6 +174,118 @@ export default function PerformancePage() {
         {/* Input Section */}
         <div style={{ border: '1px solid #ddd', borderRadius: 12, padding: 16 }}>
           <h3 style={{ marginTop: 0 }}>Inputs</h3>
+
+          {/* Real-time Weather */}
+          <div
+            style={{
+              marginBottom: 16,
+              padding: 12,
+              borderRadius: 8,
+              background: '#eff6ff',
+              border: '1px solid #93c5fd',
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8 }}>
+              🌤️ Get Current Weather
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="text"
+                value={icaoInput}
+                onChange={(e) => setIcaoInput(e.target.value.toUpperCase())}
+                onKeyDown={(e) => e.key === 'Enter' && fetchWeather()}
+                placeholder="ICAO (e.g., KJFK)"
+                maxLength={4}
+                style={{
+                  flex: 1,
+                  padding: 8,
+                  borderRadius: 8,
+                  border: '1px solid #ddd',
+                  textTransform: 'uppercase',
+                }}
+              />
+              <button
+                onClick={fetchWeather}
+                disabled={isLoadingWeather}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 8,
+                  border: '1px solid #2563eb',
+                  background: '#2563eb',
+                  color: '#fff',
+                  fontWeight: 700,
+                  cursor: isLoadingWeather ? 'wait' : 'pointer',
+                  opacity: isLoadingWeather ? 0.6 : 1,
+                }}
+              >
+                {isLoadingWeather ? 'Loading...' : 'Fetch'}
+              </button>
+            </div>
+
+            {weatherError && (
+              <div
+                style={{
+                  marginTop: 8,
+                  padding: 8,
+                  borderRadius: 6,
+                  background: '#fef2f2',
+                  color: '#dc2626',
+                  fontSize: 12,
+                }}
+              >
+                {weatherError}
+              </div>
+            )}
+
+            {metar && (
+              <div
+                style={{
+                  marginTop: 8,
+                  padding: 10,
+                  borderRadius: 6,
+                  background: '#f0fdf4',
+                  border: '1px solid #86efac',
+                }}
+              >
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#059669', marginBottom: 4 }}>
+                  ✅ METAR for {metar.icao}
+                  {metar.name && ` - ${metar.name}`}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    color: '#065f46',
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {metar.raw_text}
+                </div>
+                {metar.flight_category && (
+                  <div
+                    style={{
+                      marginTop: 6,
+                      fontSize: 10,
+                      fontWeight: 800,
+                      color:
+                        metar.flight_category === 'VFR'
+                          ? '#059669'
+                          : metar.flight_category === 'MVFR'
+                          ? '#d97706'
+                          : '#dc2626',
+                    }}
+                  >
+                    {metar.flight_category} Conditions
+                  </div>
+                )}
+                <div style={{ marginTop: 6, fontSize: 11, opacity: 0.8 }}>
+                  Fields updated automatically ↓
+                </div>
+              </div>
+            )}
+          </div>
+
+          <hr style={{ margin: '16px 0', opacity: 0.3 }} />
 
           {/* Pressure Altitude Input Mode */}
           <div style={{ marginBottom: 16 }}>
