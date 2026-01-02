@@ -148,9 +148,7 @@ export function diagnoseEnvelope(
 ) : EnvelopeViolation {
   if (poly.length < 3) return 'outside';
 
-  const ys = poly.map(p => p.y);
-  //const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
+  const maxY = Math.max(...poly.map(p => p.y));
 
   if (y > maxY) return 'overweight';
 

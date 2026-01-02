@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { localDb } from '../../lib/storage/localDb';
 import type { AircraftProfile, Station } from '../aircraft/types';
 import { assistEnvelope, diagnoseEnvelope } from '../../lib/math/envelope';
+import { round, clamp, validatePassengerWeight, checkFuelReserve } from '../../lib/utils';
 
 
 type LoadItem = {
@@ -17,11 +18,6 @@ function loadProfiles(): AircraftProfile[] {
   return raw as AircraftProfile[];
 }
 
-function round(n: number, digits = 1) {
-  const p = Math.pow(10, digits);
-  return Math.round(n * p) / p;
-}
-
 function compute(items: LoadItem[]) {
   const totalWeight = items.reduce((sum, i) => sum + i.weightLb, 0);
   const totalMoment = items.reduce((sum, i) => sum + i.weightLb * i.armIn, 0);
@@ -32,10 +28,6 @@ function compute(items: LoadItem[]) {
 function findStation(profile: AircraftProfile, nameIncludes: string): Station | undefined {
   const key = nameIncludes.toLowerCase();
   return profile.stations.find((s) => s.name.toLowerCase().includes(key));
-}
-
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
 }
 
 type Phase = 'Ramp' | 'Takeoff' | 'Landing';
@@ -603,6 +595,11 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
       warnings.push(`Fuel exceeds station max (${round(fuelRampLb)} > ${fuelMax} lb).`);
     }
 
+    // VFR fuel reserve check (assumes day flight; could add night toggle)
+    // Estimate GPH from total burn across flight (simplified - real flight plans would have more detail)
+    const estimatedGph = burn / 1.5 || 8.0; // Rough estimate: assume 1.5 hr flight or default 8 GPH
+    const fuelReserveCheck = checkFuelReserve(landingGal, estimatedGph);
+
     return {
       density,
       usable,
@@ -619,21 +616,22 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
       landing,
       limits: profile.limits,
       warnings,
+      fuelReserveCheck,
       envelope: {
         hasAnyEnvelope,
-      
+
         // for drawing both on one graph
         normalPoints: normalOk ? normal.sorted : [],
         utilityPoints: utilityOk ? utility.sorted : [],
-      
+
         // diagnostics for both categories
         normalDiag,
         utilityDiag,
-      
-        // diagnostics used as the “main” pass/fail text
+
+        // diagnostics used as the "main" pass/fail text
         primaryDiag,
       },
-      
+
     };
   }, [
     profile,
@@ -744,7 +742,7 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
       {/* Station max warnings (B) */}
       {calc?.warnings?.length ? (
         <div style={{ marginTop: 12, border: '1px solid #f0c36d', borderRadius: 12, padding: 12 }}>
-          <div style={{ fontWeight: 900 }}>Station limit warnings</div>
+          <div style={{ fontWeight: 900 }}>⚠️ Station limit warnings</div>
           <ul style={{ margin: '8px 0 0 18px' }}>
             {calc.warnings.map((w, idx) => (
               <li key={idx}>{w}</li>
@@ -752,6 +750,22 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
           </ul>
         </div>
       ) : null}
+
+      {/* Fuel reserve warning */}
+      {calc?.fuelReserveCheck && !calc.fuelReserveCheck.ok && (
+        <div
+          style={{
+            marginTop: 12,
+            border: '2px solid #dc2626',
+            borderRadius: 12,
+            padding: 12,
+            background: '#fef2f2',
+          }}
+        >
+          <div style={{ fontWeight: 900, marginBottom: 6 }}>⛔ VFR Fuel Reserve Warning</div>
+          <div style={{ fontSize: 14 }}>{calc.fuelReserveCheck.message}</div>
+        </div>
+      )}
 
 <div style={{ marginTop: 12 }}>
   <label style={{ fontSize: 12, opacity: 0.8 }}>Active category</label>
@@ -772,22 +786,32 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
 
 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginTop: 16 }}>
   <div>
-    <label>Front seats (lb)</label>
+    <label htmlFor="front-seats-weight">Front seats (lb)</label>
     <input
+      id="front-seats-weight"
+      type="number"
+      min="0"
+      max="400"
       value={frontLb}
-      onChange={(e) => setFrontLb(Number(e.target.value) || 0)}
+      onChange={(e) => setFrontLb(validatePassengerWeight(Number(e.target.value) || 0))}
       inputMode="decimal"
       style={{ width: '100%', padding: 8, borderRadius: 8 }}
+      aria-label="Front seats weight in pounds"
     />
   </div>
 
   <div>
-    <label>Rear seats (lb)</label>
+    <label htmlFor="rear-seats-weight">Rear seats (lb)</label>
     <input
+      id="rear-seats-weight"
+      type="number"
+      min="0"
+      max="400"
       value={rearLb}
-      onChange={(e) => setRearLb(Number(e.target.value) || 0)}
+      onChange={(e) => setRearLb(validatePassengerWeight(Number(e.target.value) || 0))}
       inputMode="decimal"
       style={{ width: '100%', padding: 8, borderRadius: 8 }}
+      aria-label="Rear seats weight in pounds"
     />
   </div>
 
