@@ -1,10 +1,29 @@
 import { useState } from 'react';
-import { getMetar, getTaf, parseIcaoCode, type MetarData, type TafData } from '../../services/aviationApi';
+import { getMetar, getTaf, getNearestTaf, parseIcaoCode, type MetarData, type TafData } from '../../services/aviationApi';
+
+// Helper to format TAF times in Zulu
+function formatTafTime(isoString: string): string {
+  if (!isoString) return 'N/A';
+  try {
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return 'N/A';
+
+    // Format as "DD HH:mm" in UTC
+    const day = date.getUTCDate().toString().padStart(2, '0');
+    const hours = date.getUTCHours().toString().padStart(2, '0');
+    const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+
+    return `${day}/${hours}${minutes}Z`;
+  } catch {
+    return 'N/A';
+  }
+}
 
 type AirportWeather = {
   icao: string;
   metar: MetarData | null;
   taf: TafData | null;
+  tafIsNearby: boolean; // True if TAF is from a nearby airport
   loading: boolean;
   error: string;
 };
@@ -32,6 +51,7 @@ export default function WeatherPage() {
       icao,
       metar: null,
       taf: null,
+      tafIsNearby: false,
       loading: true,
       error: '',
     };
@@ -40,11 +60,18 @@ export default function WeatherPage() {
     setSelectedIndex(airports.length);
     setIcaoInput('');
 
-    // Fetch weather data
-    const [metarData, tafData] = await Promise.all([
-      getMetar(icao),
-      getTaf(icao),
-    ]);
+    // Fetch METAR and TAF
+    const metarData = await getMetar(icao);
+    let tafData = await getTaf(icao);
+    let tafIsNearby = false;
+
+    // If no TAF available, try to get nearest TAF
+    if (!tafData && metarData) {
+      tafData = await getNearestTaf(icao);
+      if (tafData) {
+        tafIsNearby = true;
+      }
+    }
 
     // Update with results
     setAirports(prev => prev.map((a, i) =>
@@ -52,6 +79,7 @@ export default function WeatherPage() {
         ...a,
         metar: metarData,
         taf: tafData,
+        tafIsNearby,
         loading: false,
         error: !metarData && !tafData ? `No weather data available for ${icao}` : '',
       } : a
@@ -400,8 +428,24 @@ export default function WeatherPage() {
                     TAF - {selected.taf.icao}
                   </h3>
                   {selected.taf.name && (
-                    <div style={{ fontSize: 14, opacity: 0.7, marginBottom: 16 }}>
+                    <div style={{ fontSize: 14, opacity: 0.7, marginBottom: 8 }}>
                       {selected.taf.name}
+                    </div>
+                  )}
+
+                  {/* Nearby TAF Notice */}
+                  {selected.tafIsNearby && selected.taf.icao !== selected.icao && (
+                    <div
+                      style={{
+                        padding: 10,
+                        borderRadius: 8,
+                        background: '#fef3c7',
+                        border: '1px solid #fbbf24',
+                        marginBottom: 16,
+                        fontSize: 13,
+                      }}
+                    >
+                      ℹ️ No TAF available for {selected.icao}. Showing TAF from nearest airport ({selected.taf.icao}).
                     </div>
                   )}
 
@@ -423,17 +467,9 @@ export default function WeatherPage() {
                             }}
                           >
                             <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>
-                              {period.timestamp.from ? new Date(period.timestamp.from).toLocaleString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              }) : 'N/A'}
+                              {formatTafTime(period.timestamp.from)}
                               {' → '}
-                              {period.timestamp.to ? new Date(period.timestamp.to).toLocaleString('en-US', {
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              }) : 'N/A'}
+                              {formatTafTime(period.timestamp.to)}
                             </div>
 
                             {period.wind && (
