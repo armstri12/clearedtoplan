@@ -1,10 +1,66 @@
 /**
  * Aviation Weather API Service
- * Integrates with CheckWX API for real-time METAR and TAF data
- * Documentation: https://www.checkwxapi.com/documentation
+ * Integrates with AviationWeather.gov (NOAA) for real-time METAR and TAF data
+ * Uses Cloudflare Worker proxy to bypass CORS restrictions
+ *
+ * Documentation: https://aviationweather.gov/data/api/
  */
 
-// Type definitions for API responses
+// AviationWeather.gov raw response types
+type AvWxMetarRaw = {
+  icaoId: string;
+  receiptTime?: string;
+  obsTime?: number;
+  reportTime?: string;
+  temp?: number; // Celsius
+  dewp?: number; // Celsius
+  wdir?: number; // Wind direction in degrees
+  wspd?: number; // Wind speed in knots
+  wgst?: number; // Wind gust in knots
+  visib?: string; // Visibility in statute miles
+  altim?: number; // Altimeter in inHg
+  slp?: number; // Sea level pressure in mb
+  wxString?: string; // Weather phenomena
+  rawOb: string; // Raw METAR text
+  name?: string; // Airport name
+  lat?: number;
+  lon?: number;
+  elev?: number; // Elevation in meters
+  fltcat?: string; // Flight category: VFR, MVFR, IFR, LIFR
+  clouds?: Array<{
+    cover?: string; // SKC, FEW, SCT, BKN, OVC
+    base?: number; // Cloud base in feet AGL
+  }>;
+};
+
+type AvWxTafRaw = {
+  icaoId: string;
+  issueTime?: string;
+  bulletinTime?: string;
+  validTimeFrom?: string;
+  validTimeTo?: string;
+  rawTAF: string;
+  lat?: number;
+  lon?: number;
+  elev?: number;
+  name?: string;
+  fcsts?: Array<{
+    fcstTime?: string;
+    timeFrom?: string;
+    timeTo?: string;
+    temp?: number;
+    wspd?: number;
+    wdir?: number;
+    visib?: string;
+    altim?: number;
+    clouds?: Array<{
+      cover?: string;
+      base?: number;
+    }>;
+  }>;
+};
+
+// Normalized types for our UI (similar interface to CheckWX for compatibility)
 export type MetarData = {
   icao: string;
   name?: string;
@@ -24,38 +80,20 @@ export type MetarData = {
     celsius: number;
     fahrenheit: number;
   };
-  humidity?: {
-    percent: number;
-  };
   wind?: {
     degrees: number;
     speed_kts: number;
-    speed_mph: number;
     gust_kts?: number;
-    gust_mph?: number;
   };
   visibility?: {
     miles: string;
     miles_float: number;
-    meters: string;
-    meters_float: number;
   };
-  conditions?: Array<{
-    code: string;
-    text: string;
-  }>;
   clouds?: Array<{
     code: string;
     text: string;
     feet: number;
-    meters: number;
   }>;
-  ceiling?: {
-    code: string;
-    feet: number;
-    meters: number;
-    text: string;
-  };
   flight_category?: string; // VFR, MVFR, IFR, LIFR
   elevation?: {
     feet: number;
@@ -63,14 +101,10 @@ export type MetarData = {
   };
 };
 
-export type MetarResponse = {
-  results: number;
-  data: MetarData[];
-};
-
 export type TafData = {
   icao: string;
   raw_text: string;
+  name?: string;
   timestamp?: {
     issued: string;
     bulletin: string;
@@ -87,20 +121,101 @@ export type TafData = {
     visibility?: {
       miles: string;
     };
-    conditions?: Array<{
-      code: string;
-      text: string;
-    }>;
   }>;
 };
 
-export type TafResponse = {
-  results: number;
-  data: TafData[];
-};
+// Configuration
+const WORKER_URL = import.meta.env.VITE_WEATHER_API_URL || '';
 
-const API_BASE_URL = 'https://api.checkwx.com';
-const API_KEY = import.meta.env.VITE_CHECKWX_API_KEY;
+// Helper to convert Celsius to Fahrenheit
+function celsiusToFahrenheit(c: number): number {
+  return Math.round((c * 9 / 5 + 32) * 10) / 10;
+}
+
+// Helper to convert meters to feet
+function metersToFeet(m: number): number {
+  return Math.round(m * 3.28084);
+}
+
+// Helper to convert mb to various pressure units
+function convertPressure(altimInHg?: number, slpMb?: number) {
+  const hg = altimInHg || (slpMb ? slpMb * 0.02953 : 29.92);
+  const mb = slpMb || (altimInHg ? altimInHg / 0.02953 : 1013);
+  return {
+    hg: Math.round(hg * 100) / 100,
+    hpa: Math.round(mb * 10) / 10,
+    kpa: Math.round(mb * 0.1 * 100) / 100,
+    mb: Math.round(mb * 10) / 10,
+  };
+}
+
+/**
+ * Normalize AviationWeather.gov METAR response to our MetarData format
+ */
+function normalizeMetar(raw: AvWxMetarRaw): MetarData {
+  return {
+    icao: raw.icaoId,
+    name: raw.name,
+    observed: raw.reportTime,
+    raw_text: raw.rawOb,
+    barometer: raw.altim || raw.slp ? convertPressure(raw.altim, raw.slp) : undefined,
+    temperature: raw.temp !== undefined ? {
+      celsius: raw.temp,
+      fahrenheit: celsiusToFahrenheit(raw.temp),
+    } : undefined,
+    dewpoint: raw.dewp !== undefined ? {
+      celsius: raw.dewp,
+      fahrenheit: celsiusToFahrenheit(raw.dewp),
+    } : undefined,
+    wind: raw.wspd !== undefined || raw.wdir !== undefined ? {
+      degrees: raw.wdir || 0,
+      speed_kts: raw.wspd || 0,
+      gust_kts: raw.wgst,
+    } : undefined,
+    visibility: raw.visib ? {
+      miles: raw.visib,
+      miles_float: parseFloat(raw.visib) || 0,
+    } : undefined,
+    clouds: raw.clouds?.map(cloud => ({
+      code: cloud.cover || 'UNK',
+      text: cloud.cover || 'Unknown',
+      feet: cloud.base || 0,
+    })),
+    flight_category: raw.fltcat,
+    elevation: raw.elev !== undefined ? {
+      feet: metersToFeet(raw.elev),
+      meters: raw.elev,
+    } : undefined,
+  };
+}
+
+/**
+ * Normalize AviationWeather.gov TAF response to our TafData format
+ */
+function normalizeTaf(raw: AvWxTafRaw): TafData {
+  return {
+    icao: raw.icaoId,
+    name: raw.name,
+    raw_text: raw.rawTAF,
+    timestamp: raw.issueTime || raw.bulletinTime ? {
+      issued: raw.issueTime || '',
+      bulletin: raw.bulletinTime || '',
+    } : undefined,
+    forecast: raw.fcsts?.map(fcst => ({
+      timestamp: {
+        from: fcst.timeFrom || '',
+        to: fcst.timeTo || '',
+      },
+      wind: fcst.wspd !== undefined || fcst.wdir !== undefined ? {
+        degrees: fcst.wdir || 0,
+        speed_kts: fcst.wspd || 0,
+      } : undefined,
+      visibility: fcst.visib ? {
+        miles: fcst.visib,
+      } : undefined,
+    })),
+  };
+}
 
 /**
  * Fetch METAR data for a given ICAO code
@@ -108,31 +223,31 @@ const API_KEY = import.meta.env.VITE_CHECKWX_API_KEY;
  * @returns METAR data or null if unavailable
  */
 export async function getMetar(icao: string): Promise<MetarData | null> {
-  if (!API_KEY) {
-    console.warn('CheckWX API key not configured. Set VITE_CHECKWX_API_KEY in .env.local');
+  if (!WORKER_URL) {
+    console.warn(
+      'Weather API URL not configured. Set VITE_WEATHER_API_URL in .env.local to your Cloudflare Worker URL.\n' +
+      'See WEATHER_API_SETUP.md for setup instructions.'
+    );
     return null;
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}/metar/${icao.toUpperCase()}/decoded`, {
-      headers: {
-        'X-API-Key': API_KEY,
-      },
-    });
+    const url = `${WORKER_URL}/metar?ids=${icao.toUpperCase()}&format=json`;
+    const response = await fetch(url);
 
     if (!response.ok) {
-      console.error(`CheckWX API error: ${response.status} ${response.statusText}`);
+      console.error(`AviationWeather.gov API error: ${response.status} ${response.statusText}`);
       return null;
     }
 
-    const data: MetarResponse = await response.json();
+    const data: AvWxMetarRaw[] = await response.json();
 
-    if (data.results === 0 || !data.data || data.data.length === 0) {
+    if (!data || data.length === 0) {
       console.warn(`No METAR data available for ${icao}`);
       return null;
     }
 
-    return data.data[0];
+    return normalizeMetar(data[0]);
   } catch (error) {
     console.error('Error fetching METAR data:', error);
     return null;
@@ -145,31 +260,31 @@ export async function getMetar(icao: string): Promise<MetarData | null> {
  * @returns TAF data or null if unavailable
  */
 export async function getTaf(icao: string): Promise<TafData | null> {
-  if (!API_KEY) {
-    console.warn('CheckWX API key not configured. Set VITE_CHECKWX_API_KEY in .env.local');
+  if (!WORKER_URL) {
+    console.warn(
+      'Weather API URL not configured. Set VITE_WEATHER_API_URL in .env.local to your Cloudflare Worker URL.\n' +
+      'See WEATHER_API_SETUP.md for setup instructions.'
+    );
     return null;
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}/taf/${icao.toUpperCase()}/decoded`, {
-      headers: {
-        'X-API-Key': API_KEY,
-      },
-    });
+    const url = `${WORKER_URL}/taf?ids=${icao.toUpperCase()}&format=json`;
+    const response = await fetch(url);
 
     if (!response.ok) {
-      console.error(`CheckWX API error: ${response.status} ${response.statusText}`);
+      console.error(`AviationWeather.gov API error: ${response.status} ${response.statusText}`);
       return null;
     }
 
-    const data: TafResponse = await response.json();
+    const data: AvWxTafRaw[] = await response.json();
 
-    if (data.results === 0 || !data.data || data.data.length === 0) {
+    if (!data || data.length === 0) {
       console.warn(`No TAF data available for ${icao}`);
       return null;
     }
 
-    return data.data[0];
+    return normalizeTaf(data[0]);
   } catch (error) {
     console.error('Error fetching TAF data:', error);
     return null;

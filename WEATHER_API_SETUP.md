@@ -1,113 +1,257 @@
 # Weather API Setup Guide
 
-Cleared To Plan now integrates real-time aviation weather data (METAR/TAF) using the CheckWX Aviation Weather API.
+Cleared To Plan integrates real-time aviation weather data (METAR/TAF) from **AviationWeather.gov** (NOAA's official source). Since aviationweather.gov blocks direct browser access (CORS), we use a **free Cloudflare Worker** as a proxy.
 
-## 🚀 Quick Setup (5 minutes)
+## 🚀 Quick Setup (10 minutes)
 
-### 1. Get a Free API Key
+### Step 1: Deploy Cloudflare Worker
 
-1. Visit [CheckWX API](https://www.checkwxapi.com/)
-2. Click "Sign Up" or "Get Started"
-3. Create a free account (no credit card required)
-4. Copy your API key from the dashboard
+1. **Create a free Cloudflare account**
+   - Visit https://workers.cloudflare.com/
+   - Sign up (no credit card required)
+   - Verify your email
 
-### 2. Configure Your Environment
+2. **Create a new Worker**
+   - Click "Create a Service"
+   - Name it something like `weather-proxy`
+   - Click "Create Service"
 
-1. Create a file named `.env.local` in the project root:
+3. **Deploy the proxy code**
+   - Click "Quick Edit" in the top right
+   - Delete the default code
+   - Copy ALL code from `cloudflare-worker/weather-proxy.js`
+   - Paste it into the editor
+   - Click "Save and Deploy"
+
+4. **Copy your Worker URL**
+   - You'll see a URL like: `https://weather-proxy.YOUR-USERNAME.workers.dev`
+   - Copy this entire URL
+
+### Step 2: Configure Your App
+
+1. **Create environment file**
    ```bash
    cp .env.example .env.local
    ```
 
-2. Open `.env.local` and add your API key:
+2. **Add your Worker URL**
+
+   Open `.env.local` and paste your Worker URL:
    ```env
-   VITE_CHECKWX_API_KEY=your_actual_api_key_here
+   VITE_WEATHER_API_URL=https://weather-proxy.YOUR-USERNAME.workers.dev
    ```
 
-3. Restart your development server:
+3. **Restart dev server**
    ```bash
    npm run dev
    ```
 
-## ✅ Verification
+### Step 3: Test It
 
 1. Navigate to the **Performance Calculator** page
 2. Enter an ICAO code (e.g., `KJFK`, `KLAX`, `KORD`)
-3. Click **Fetch** button
+3. Click **Fetch**
 4. You should see:
    - ✅ METAR data displayed
    - Auto-populated temperature and altimeter settings
    - Flight category (VFR/MVFR/IFR/LIFR)
 
-## 🌐 Features
+## ✅ What You Get
 
 ### Current Implementation
 
-- **Performance Page**: Real-time weather data auto-populates density altitude calculator
+- **Performance Page**: Real-time weather auto-populates density altitude calculator
   - Fetches current METAR by ICAO code
   - Auto-fills field elevation, altimeter setting, and temperature
   - Displays raw METAR text and flight category
   - Color-coded VFR/MVFR/IFR/LIFR indicators
 
-### Coming Soon
+### Data Source Benefits
 
-- **Navlog Page**: METAR/TAF for departure and destination
-- **Airport Database**: Search airports by name, show info
-- **Route Weather**: Weather along planned route
+- ✅ **Official NOAA data** - Most authoritative source
+- ✅ **100% free** - No API keys, no limits (within Cloudflare's 100k req/day)
+- ✅ **Worldwide coverage** - All airports with METAR reporting
+- ✅ **Real-world certified** - Actual aviation weather, not simulation data
+- ✅ **Always up-to-date** - Live observations from weather stations
 
-## 📚 API Documentation
+## 🌐 Production Deployment
 
-- **Service**: CheckWX Aviation Weather API
-- **Documentation**: https://www.checkwxapi.com/documentation
-- **Rate Limits**: Check your plan details (free tier is generous)
-- **Data Coverage**: Worldwide METAR and TAF data
-- **Response Time**: Sub-100ms typical
+### For GitHub Pages
+
+Your setup already works! Just add the environment variable:
+
+1. **During development**: `.env.local` file (already done ✅)
+
+2. **For GitHub Pages build**:
+   - Go to your repo → Settings → Secrets and variables → Actions
+   - Click "New repository secret"
+   - Name: `VITE_WEATHER_API_URL`
+   - Value: Your Cloudflare Worker URL
+   - Click "Add secret"
+
+3. **Update `.github/workflows/deploy.yml`** to use the secret:
+   ```yaml
+   - run: npm run build
+     env:
+       VITE_WEATHER_API_URL: ${{ secrets.VITE_WEATHER_API_URL }}
+   ```
+
+### For Other Hosting Platforms
+
+**Vercel:**
+- Project Settings → Environment Variables
+- Add `VITE_WEATHER_API_URL` with your Worker URL
+
+**Netlify:**
+- Site Settings → Environment Variables
+- Add `VITE_WEATHER_API_URL` with your Worker URL
+
+**Cloudflare Pages:**
+- Settings → Environment Variables
+- Add `VITE_WEATHER_API_URL` with your Worker URL
 
 ## 🔧 Troubleshooting
 
 ### "No weather data available"
-- Verify the ICAO code is correct (4 letters, e.g., KJFK not JFK)
-- Some small airports may not report METAR
-- Check your internet connection
+- ✅ Verify the ICAO code is correct (4 letters, e.g., KJFK not JFK)
+- ✅ Some small airports may not report METAR
+- ✅ Check your Cloudflare Worker is deployed and accessible
+- ✅ Check browser console for errors
 
-### "CheckWX API key not configured"
-- Ensure `.env.local` file exists in project root
-- Verify the variable name is exactly `VITE_CHECKWX_API_KEY`
-- Restart your dev server after creating `.env.local`
-- DO NOT commit `.env.local` to git (already in .gitignore)
+### "Weather API URL not configured"
+- ✅ Ensure `.env.local` file exists in project root
+- ✅ Verify the variable name is exactly `VITE_WEATHER_API_URL`
+- ✅ Restart your dev server after creating `.env.local`
+- ✅ DO NOT commit `.env.local` to git (already in .gitignore)
 
-### API rate limits exceeded
-- Free tier has generous limits but check your usage
-- Consider caching frequent airports
-- Upgrade plan if needed for high-volume use
+### Worker not working
+- ✅ Visit your Worker URL directly in browser - should show usage instructions
+- ✅ Test with: `https://your-worker.workers.dev/metar?ids=KJFK&format=json`
+- ✅ Check Cloudflare dashboard for error logs
+- ✅ Ensure you copied the FULL worker code from `cloudflare-worker/weather-proxy.js`
+
+### CORS errors
+- ✅ Make sure you're calling the Worker URL, not aviationweather.gov directly
+- ✅ Worker should have CORS headers enabled (already in the code)
+- ✅ Check browser console for the exact error
+
+## 📚 API Documentation
+
+### Data Source
+- **Service**: AviationWeather.gov (NOAA Aviation Weather Center)
+- **Official Docs**: https://aviationweather.gov/data/api/
+- **Coverage**: Worldwide METAR and TAF data
+- **Update Frequency**: Real-time (typically every hour, more frequent for significant changes)
+- **Historical Data**: Up to 15 days
+
+### Rate Limits
+- **Cloudflare Workers Free Tier**: 100,000 requests/day
+- **AviationWeather.gov**: 100 requests/minute per IP
+- For most GA flight planning use, you'll never hit these limits
+
+### Example Requests
+
+Via your Worker:
+```bash
+# Get METAR for JFK
+https://your-worker.workers.dev/metar?ids=KJFK&format=json
+
+# Get TAF for LAX
+https://your-worker.workers.dev/taf?ids=KLAX&format=json
+
+# Get METAR for multiple airports
+https://your-worker.workers.dev/metar?ids=KJFK,KLAX,KORD&format=json
+```
 
 ## 🔐 Security Notes
 
-- **Never commit** your `.env.local` file (already in .gitignore)
-- **Never share** your API key publicly
-- For production deployment, use environment variables in your hosting platform:
-  - Vercel: Project Settings → Environment Variables
-  - Netlify: Site Settings → Environment Variables
-  - GitHub Pages: Use GitHub Secrets for build process
+- **Never commit** your `.env.local` file (already in .gitignore ✅)
+- **Worker URL is public** - that's fine! It only proxies public weather data
+- **No authentication needed** - aviationweather.gov is free public data
+- **Rate limiting** - Cloudflare provides DDoS protection automatically
 
-## 🎯 Alternative APIs
+## 🎯 Why This Setup?
 
-If you prefer a different weather data source, the code is designed to be API-agnostic. You can swap out the implementation in `src/services/aviationApi.ts` with:
+**Why Cloudflare Workers?**
+- Free tier is extremely generous (100k req/day)
+- Global edge network = fast worldwide
+- Takes 5 minutes to set up
+- No credit card required
+- Automatic HTTPS and DDoS protection
 
-- **AviationWeather.gov** (NOAA) - Free but requires CORS proxy
-- **AVWX REST API** - Free for basic METAR/TAF
-- **Aviation Edge** - Paid, comprehensive features
+**Why AviationWeather.gov?**
+- Official US government source (NOAA)
+- Most authoritative weather data
+- 100% free, no API keys
+- Real-world certified data (not simulation)
+- Worldwide coverage
 
-The service layer abstracts the API, so changing providers only requires updating one file.
+**Why not direct API calls?**
+- aviationweather.gov blocks CORS (can't call from browser)
+- GitHub Pages is static-only (can't run server-side code)
+- Worker acts as a thin proxy layer to solve this
 
-## 📦 Production Build
+## 🔄 Alternative: Run Your Own Proxy
 
-When building for production:
+If you prefer not to use Cloudflare Workers, you can run the proxy anywhere:
 
-```bash
-# Ensure .env.local is configured locally for development
-# For production, set VITE_CHECKWX_API_KEY in your hosting platform
+**Node.js/Express:**
+```javascript
+const express = require('express');
+const cors = require('cors');
+const fetch = require('node-fetch');
 
-npm run build
+const app = express();
+app.use(cors());
+
+app.get('/:type', async (req, res) => {
+  const { type } = req.params;
+  const params = new URLSearchParams(req.query).toString();
+  const url = `https://aviationweather.gov/api/data/${type}?${params}`;
+  const response = await fetch(url);
+  const data = await response.text();
+  res.send(data);
+});
+
+app.listen(3001);
 ```
 
-The app will work without the API key but weather features will be disabled (gracefully fails with helpful console warnings).
+**Deno Deploy** (also free):
+- Similar to Cloudflare Workers
+- Paste the worker code with minor modifications
+- Deploy to https://deno.com/deploy
+
+## 📦 Advanced: Caching
+
+The Worker code can be enhanced with caching to reduce API calls:
+
+```javascript
+// Add to worker code
+const CACHE_TTL = 60 * 5; // 5 minutes
+
+// In fetch handler:
+const cache = caches.default;
+const cacheKey = new Request(url.toString());
+let response = await cache.match(cacheKey);
+
+if (!response) {
+  response = await fetch(upstreamUrl);
+  ctx.waitUntil(cache.put(cacheKey, response.clone()));
+}
+```
+
+This reduces load on aviationweather.gov and makes responses faster.
+
+## 🆘 Still Having Issues?
+
+Common issues and fixes:
+
+1. **Worker 404**: Worker name in URL must match your deployed worker name
+2. **CORS still blocked**: Make sure you're calling the worker, not aviationweather.gov
+3. **Empty responses**: Check the ICAO code is valid (4 letters)
+4. **Build fails**: Ensure environment variable is set in CI/CD settings
+
+If you continue having issues, check:
+- Browser console for errors
+- Cloudflare Worker logs in dashboard
+- Network tab to see what URLs are being called
