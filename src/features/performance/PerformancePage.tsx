@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useFlightSession } from '../../context/FlightSessionContext';
 import { getMetar, parseIcaoCode, type MetarData } from '../../services/aviationApi';
 
 // Standard atmosphere constants
@@ -353,6 +355,9 @@ function getRunwaySafetyLevel(requiredFt: number, availableFt: number | null) {
 }
 
 export default function PerformancePage() {
+  const navigate = useNavigate();
+  const { currentSession, completeStep } = useFlightSession();
+
   // Input mode selection
   const [inputMode, setInputMode] = useState<'direct' | 'calculated'>('calculated');
 
@@ -676,16 +681,44 @@ export default function PerformancePage() {
               </div>
 
               <div style={{ marginBottom: 12 }}>
-                <label htmlFor="altimeter">Altimeter Setting (inHg)</label>
+                <label htmlFor="altimeter" style={{ fontWeight: 700 }}>
+                  Altimeter Setting (inHg)
+                </label>
                 <input
                   id="altimeter"
                   type="number"
                   step="0.01"
                   value={altimeter}
                   onChange={(e) => setAltimeter(e.target.value)}
-                  style={{ width: '100%', padding: 8, borderRadius: 8, marginTop: 4 }}
+                  style={{
+                    width: '100%',
+                    padding: 8,
+                    borderRadius: 8,
+                    marginTop: 4,
+                    border: (Number(altimeter) < 27 || Number(altimeter) > 31) ? '2px solid #dc2626' : '1px solid #ddd'
+                  }}
                   placeholder="e.g. 29.92"
                 />
+                <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>
+                  Must be in inches of mercury (inHg), typically 28-31
+                </div>
+                {(Number(altimeter) > 100 || Number(altimeter) < 20) && (
+                  <div
+                    style={{
+                      marginTop: 4,
+                      padding: 6,
+                      borderRadius: 6,
+                      background: '#fef2f2',
+                      border: '1px solid #fca5a5',
+                      fontSize: 11,
+                      color: '#dc2626',
+                      fontWeight: 700
+                    }}
+                  >
+                    ⚠️ This value looks incorrect. Use inHg (e.g., 29.92), not hPa.
+                    {Number(altimeter) > 100 && ` ${Number(altimeter)} hPa = ${(Number(altimeter) * 0.02953).toFixed(2)} inHg`}
+                  </div>
+                )}
               </div>
             </>
           ) : (
@@ -1376,6 +1409,53 @@ export default function PerformancePage() {
             <li>If using &gt;70% of available runway, consider alternate airport</li>
           </ul>
         </div>
+      </div>
+
+      {/* Continue Button */}
+      <div
+        style={{
+          marginTop: 32,
+          paddingTop: 24,
+          borderTop: '2px solid #e2e8f0',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        <div style={{ fontSize: 14, color: '#64748b' }}>
+          {currentSession && (
+            <div>
+              Flight Plan: <strong>{currentSession.name}</strong>
+            </div>
+          )}
+        </div>
+        <button
+          onClick={() => {
+            completeStep('performance');
+            navigate('/weather');
+          }}
+          style={{
+            padding: '12px 32px',
+            background: '#2563eb',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 8,
+            fontWeight: 700,
+            fontSize: 16,
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#1e40af';
+            e.currentTarget.style.transform = 'translateY(-1px)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#2563eb';
+            e.currentTarget.style.transform = 'translateY(0)';
+          }}
+        >
+          Continue to Weather →
+        </button>
       </div>
     </div>
   );
