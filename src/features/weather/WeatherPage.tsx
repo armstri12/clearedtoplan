@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useFlightSession } from '../../context/FlightSessionContext';
 import { getMetar, getTaf, getNearestTaf, parseIcaoCode, type MetarData, type TafData } from '../../services/aviationApi';
 import { parseTAFAsForecast, getCompositeForecastForDate } from 'metar-taf-parser';
 import { eachHourOfInterval, format } from 'date-fns';
+import { getRunwaysForAirport, type Runway } from '../../services/runwaysApi';
 
 // Calculate flight category from visibility and ceiling
 function calculateFlightCategory(visibilityMiles: number | undefined, ceilingFeet: number | undefined): string {
@@ -20,9 +21,300 @@ type AirportWeather = {
   metar: MetarData | null;
   taf: TafData | null;
   tafIsNearby: boolean;
+  runways: Runway[];
+  runwaysLoading: boolean;
+  runwaysError?: string;
   loading: boolean;
   error: string;
 };
+
+type WindComponents = {
+  headwind: number;
+  crosswind: number;
+};
+
+type RunwayVisualization = {
+  id: string;
+  heading: number | null;
+  length: number | null;
+  width: number | null;
+  surface?: string;
+  bestEnd?: 'le' | 'he';
+  headwind?: number;
+  crosswind?: number;
+  labels: {
+    start: string;
+    end: string;
+  };
+};
+
+function normalizeHeading(heading: number | null | undefined): number | null {
+  if (heading === null || heading === undefined || Number.isNaN(heading)) return null;
+  const normalized = heading % 360;
+  return normalized === 0 ? 360 : normalized < 0 ? normalized + 360 : normalized;
+}
+
+function headingFromIdent(ident?: string): number | null {
+  if (!ident) return null;
+  const match = ident.match(/(\d{2})/);
+  if (!match) return null;
+  const numeric = parseInt(match[1], 10);
+  const heading = numeric === 36 ? 360 : numeric * 10;
+  return normalizeHeading(heading);
+}
+
+function calculateWindComponents(runwayHeading: number, windDirection: number, windSpeed: number): WindComponents {
+  const angleDiff = (((windDirection - runwayHeading) % 360) + 360) % 360;
+  const theta = (Math.PI / 180) * angleDiff;
+  return {
+    headwind: Math.round(windSpeed * Math.cos(theta)),
+    crosswind: Math.round(windSpeed * Math.sin(theta)),
+  };
+}
+
+function deriveRunwayHeading(runway: Runway): number | null {
+  const leHeading = normalizeHeading(runway.le.heading ?? headingFromIdent(runway.le.ident));
+  if (leHeading !== null) return leHeading;
+
+  const heHeading = normalizeHeading(runway.he.heading ?? headingFromIdent(runway.he.ident));
+  if (heHeading !== null) {
+    const reciprocal = (heHeading + 180) % 360 || 360;
+    return reciprocal;
+  }
+
+  return null;
+}
+
+function pickBestEnd(
+  leHeading: number | null,
+  heHeading: number | null,
+  windDir: number,
+  windSpeed: number
+): { end?: 'le' | 'he'; components?: WindComponents } {
+  const leComponents = leHeading !== null ? calculateWindComponents(leHeading, windDir, windSpeed) : null;
+  const heComponents = heHeading !== null ? calculateWindComponents(heHeading, windDir, windSpeed) : null;
+
+  if (leComponents && heComponents) {
+    if (leComponents.headwind === heComponents.headwind) {
+      return Math.abs(leComponents.crosswind) <= Math.abs(heComponents.crosswind)
+        ? { end: 'le', components: leComponents }
+        : { end: 'he', components: heComponents };
+    }
+    return leComponents.headwind > heComponents.headwind
+      ? { end: 'le', components: leComponents }
+      : { end: 'he', components: heComponents };
+  }
+
+  if (leComponents) return { end: 'le', components: leComponents };
+  if (heComponents) return { end: 'he', components: heComponents };
+
+  return {};
+}
+
+function RunwayDiagram({
+  runways,
+  wind,
+  loading,
+  error,
+  icao,
+}: {
+  runways: Runway[];
+  wind: NonNullable<MetarData['wind']>;
+  loading: boolean;
+  error?: string;
+  icao: string;
+}) {
+  const windDir = wind.degrees;
+  const windSpeed = wind.speed_kts;
+
+  const visuals = useMemo(() => runways.map((runway, idx): RunwayVisualization => {
+    const leHeading = normalizeHeading(runway.le.heading ?? headingFromIdent(runway.le.ident));
+    const heHeading = normalizeHeading(runway.he.heading ?? headingFromIdent(runway.he.ident));
+    const axisHeading = deriveRunwayHeading(runway);
+    const best = pickBestEnd(leHeading, heHeading, windDir, windSpeed);
+
+    return {
+      id: runway.le.ident && runway.he.ident ? `${runway.le.ident}/${runway.he.ident}` : `Runway ${idx + 1}`,
+      heading: axisHeading,
+      length: runway.lengthFt,
+      width: runway.widthFt,
+      surface: runway.surface,
+      bestEnd: best.end,
+      headwind: best.components?.headwind,
+      crosswind: best.components?.crosswind,
+      labels: {
+        start: runway.le.ident || 'LE',
+        end: runway.he.ident || 'HE',
+      },
+    };
+  }), [runways, windDir, windSpeed]);
+
+  const highlighted = useMemo(() => visuals.reduce<RunwayVisualization | null>((best, current) => {
+    if (current.bestEnd === undefined || current.headwind === undefined || current.crosswind === undefined) {
+      return best;
+    }
+
+    if (!best || best.headwind === undefined || best.crosswind === undefined) {
+      return current;
+    }
+
+    if (current.headwind > best.headwind) return current;
+    if (current.headwind === best.headwind && Math.abs(current.crosswind) < Math.abs(best.crosswind)) return current;
+
+    return best;
+  }, null), [visuals]);
+
+  const center = 120;
+  const radius = 90;
+
+  return (
+    <div style={{ padding: 12, borderRadius: 8, background: '#f0fdf4', border: '1px solid #86efac', marginBottom: 12 }}>
+      <div style={{ fontSize: 11, fontWeight: 800, opacity: 0.7, marginBottom: 8 }}>
+        🛬 Runway configuration ({icao}) with live wind from {windDir.toString().padStart(3, '0')}° @ {windSpeed} kt
+      </div>
+
+      {loading && (
+        <div style={{ padding: 12, background: '#fff', border: '1px dashed #bbf7d0', borderRadius: 8, marginBottom: 8 }}>
+          Loading runway data...
+        </div>
+      )}
+
+      {error && (
+        <div style={{ padding: 12, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, color: '#991b1b', marginBottom: 8 }}>
+          {error}
+        </div>
+      )}
+
+      {!loading && !error && visuals.length === 0 && (
+        <div style={{ padding: 12, background: '#fff', border: '1px dashed #bbf7d0', borderRadius: 8 }}>
+          No runway configuration found for {icao}.
+        </div>
+      )}
+
+      {visuals.length > 0 && (
+        <>
+          <svg viewBox="0 0 240 240" style={{ width: '100%', background: '#fff', borderRadius: 8, border: '1px solid #d1d5db' }}>
+            <circle cx={center} cy={center} r={radius + 18} fill="#f8fafc" stroke="#e2e8f0" strokeWidth={1} />
+            <text x={center} y={28} textAnchor="middle" fontSize="10" fill="#64748b">N</text>
+            <text x={center} y={234} textAnchor="middle" fontSize="10" fill="#64748b">S</text>
+            <text x={20} y={center + 3} textAnchor="middle" fontSize="10" fill="#64748b">W</text>
+            <text x={220} y={center + 3} textAnchor="middle" fontSize="10" fill="#64748b">E</text>
+
+            {/* Wind arrow (coming from) */}
+            <g transform={`translate(${center}, ${center}) rotate(${windDir - 90})`}>
+              <line x1={0} y1={-radius} x2={0} y2={radius * 0.2} stroke="#16a34a" strokeWidth={4} strokeLinecap="round" />
+              <polygon points={`0,${-radius - 6} 7,${-radius + 8} -7,${-radius + 8}`} fill="#16a34a" />
+              <circle cx={0} cy={0} r={4} fill="#16a34a" />
+            </g>
+
+            {visuals.map(runway => {
+              if (runway.heading === null) return null;
+
+              const axis = (runway.heading * Math.PI) / 180;
+              const visualLength = 70 + Math.min(90, (runway.length ?? 5000) / 120);
+              const half = visualLength / 2;
+              const dx = Math.sin(axis) * half;
+              const dy = Math.cos(axis) * half;
+              const baseStroke = runway.id === highlighted?.id ? '#16a34a' : '#475569';
+              const overlayStroke = runway.id === highlighted?.id ? '#22c55e' : '#94a3b8';
+              const strokeWidth = 6 + Math.min(4, ((runway.width ?? 150) - 75) / 75);
+
+              const startX = center - dx;
+              const startY = center + dy;
+              const endX = center + dx;
+              const endY = center - dy;
+              const labelOffsetX = Math.cos(axis) * 10;
+              const labelOffsetY = Math.sin(axis) * 10;
+
+              return (
+                <g key={runway.id}>
+                  <line
+                    x1={startX}
+                    y1={startY}
+                    x2={endX}
+                    y2={endY}
+                    stroke={overlayStroke}
+                    strokeWidth={strokeWidth + 4}
+                    strokeLinecap="round"
+                    opacity={0.35}
+                  />
+                  <line
+                    x1={startX}
+                    y1={startY}
+                    x2={endX}
+                    y2={endY}
+                    stroke={baseStroke}
+                    strokeWidth={strokeWidth}
+                    strokeLinecap="round"
+                  />
+                  <text
+                    x={startX - labelOffsetX}
+                    y={startY - labelOffsetY}
+                    fontSize="10"
+                    fontWeight="700"
+                    textAnchor="middle"
+                    fill={runway.bestEnd === 'le' && runway.id === highlighted?.id ? '#166534' : '#0f172a'}
+                  >
+                    {runway.labels.start}
+                  </text>
+                  <text
+                    x={endX + labelOffsetX}
+                    y={endY + labelOffsetY}
+                    fontSize="10"
+                    fontWeight="700"
+                    textAnchor="middle"
+                    fill={runway.bestEnd === 'he' && runway.id === highlighted?.id ? '#166534' : '#0f172a'}
+                  >
+                    {runway.labels.end}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+
+          {highlighted && highlighted.headwind !== undefined && highlighted.crosswind !== undefined && (
+            <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <div style={{ padding: '8px 12px', borderRadius: 8, background: '#dcfce7', color: '#166534', fontWeight: 800 }}>
+                Best: {highlighted.bestEnd === 'le'
+                  ? highlighted.labels.start
+                  : highlighted.bestEnd === 'he'
+                    ? highlighted.labels.end
+                    : `${highlighted.labels.start}/${highlighted.labels.end}`}
+              </div>
+              <div style={{ padding: '8px 12px', borderRadius: 8, background: '#eef2ff', color: '#3730a3', fontWeight: 700 }}>
+                Headwind: {highlighted.headwind} kt
+              </div>
+              <div style={{ padding: '8px 12px', borderRadius: 8, background: '#e0f2fe', color: '#075985', fontWeight: 700 }}>
+                Crosswind: {highlighted.crosswind} kt ({highlighted.crosswind >= 0 ? 'from right' : 'from left'})
+              </div>
+            </div>
+          )}
+
+          <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
+            {visuals.map(runway => (
+              <div key={`${runway.id}-summary`} style={{ padding: 10, borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff' }}>
+                <div style={{ fontWeight: 800, marginBottom: 4 }}>{runway.id}</div>
+                <div style={{ fontSize: 12, color: '#475569' }}>
+                  {runway.heading ? `Heading: ${runway.heading.toFixed(0)}°/${((runway.heading + 180) % 360 || 360).toFixed(0)}°` : 'Heading unavailable'}
+                </div>
+                <div style={{ fontSize: 12, color: '#475569' }}>
+                  {runway.length ? `${Math.round(runway.length).toLocaleString()} ft` : 'Length unknown'}
+                  {runway.surface && ` · ${runway.surface}`}
+                </div>
+                {runway.headwind !== undefined && runway.crosswind !== undefined && (
+                  <div style={{ fontSize: 12, marginTop: 6 }}>
+                    <span style={{ fontWeight: 700, color: '#166534' }}>{runway.headwind} kt</span> headwind /
+                    <span style={{ fontWeight: 700, color: '#0f172a' }}> {runway.crosswind} kt</span> crosswind
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function WeatherPage() {
   const { currentSession, completeStep, updateMetadata } = useFlightSession();
@@ -48,12 +340,16 @@ export default function WeatherPage() {
       metar: null,
       taf: null,
       tafIsNearby: false,
+      runways: [],
+      runwaysLoading: true,
       loading: true,
       error: '',
     };
 
+    const insertIndex = airports.length;
+
     setAirports([...airports, newAirport]);
-    setSelectedIndex(airports.length);
+    setSelectedIndex(insertIndex);
     setIcaoInput('');
 
     console.log(`=== FETCHING WEATHER FOR ${icao} ===`);
@@ -65,6 +361,8 @@ export default function WeatherPage() {
     console.log('TAF data received:', tafData);
 
     let tafIsNearby = false;
+    let runwayData: Runway[] = [];
+    let runwayError = '';
 
     if (!tafData && metarData) {
       console.log('No TAF available, searching for nearest TAF...');
@@ -75,15 +373,28 @@ export default function WeatherPage() {
       }
     }
 
+    try {
+      runwayData = await getRunwaysForAirport(icao);
+      if (runwayData.length === 0) {
+        runwayError = `No runway data available for ${icao}`;
+      }
+    } catch (err) {
+      console.error('Error fetching runways', err);
+      runwayError = `Unable to load runway configuration for ${icao}`;
+    }
+
     console.log('Final TAF data to be displayed:', tafData);
     console.log('TAF is from nearby airport:', tafIsNearby);
 
     setAirports(prev => prev.map((a, i) =>
-      i === airports.length ? {
+      i === insertIndex ? {
         ...a,
         metar: metarData,
         taf: tafData,
         tafIsNearby,
+        runways: runwayData,
+        runwaysError: runwayError,
+        runwaysLoading: false,
         loading: false,
         error: !metarData && !tafData ? `No weather data available for ${icao}` : '',
       } : a
@@ -382,63 +693,15 @@ export default function WeatherPage() {
                   </div>
 
                   {/* Runway Favored Based on Wind */}
-                  {selected.metar.wind && (() => {
-                    const windDir = selected.metar.wind.degrees;
-                    const windSpeed = selected.metar.wind.speed_kts;
-
-                    // Calculate favored runway (opposite of wind direction for headwind)
-                    // Round to nearest 10 degrees for runway designation
-                    const favoredRunway = Math.round(((windDir + 180) % 360) / 10);
-                    const oppositeRunway = Math.round(windDir / 10);
-
-                    return (
-                      <div style={{ padding: 12, borderRadius: 8, background: '#f0fdf4', border: '1px solid #86efac', marginBottom: 12 }}>
-                        <div style={{ fontSize: 11, fontWeight: 800, opacity: 0.7, marginBottom: 8 }}>
-                          🛬 FAVORED RUNWAY (Based on {windSpeed} kt wind from {windDir.toString().padStart(3, '0')}°)
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                          {/* SVG Runway Diagram */}
-                          <svg width="200" height="80" viewBox="0 0 200 80" style={{ background: '#fff', borderRadius: 8, border: '1px solid #d1d5db' }}>
-                            {/* Runway */}
-                            <rect x="20" y="30" width="160" height="20" fill="#4b5563" stroke="#374151" strokeWidth="2" />
-
-                            {/* Center line */}
-                            <line x1="20" y1="40" x2="180" y2="40" stroke="#fff" strokeWidth="1" strokeDasharray="5,5" />
-
-                            {/* Runway numbers */}
-                            <text x="35" y="45" fill="#fff" fontSize="12" fontWeight="bold" textAnchor="middle">
-                              {oppositeRunway.toString().padStart(2, '0')}
-                            </text>
-                            <text x="165" y="45" fill="#fff" fontSize="12" fontWeight="bold" textAnchor="middle">
-                              {favoredRunway.toString().padStart(2, '0')}
-                            </text>
-
-                            {/* Wind Arrow pointing to favored end */}
-                            <g transform={`translate(100, 15)`}>
-                              <path d="M 0,-5 L 5,0 L 0,5 L 0,2 L -30,2 L -30,-2 L 0,-2 Z"
-                                    fill="#22c55e"
-                                    transform={`rotate(${(windDir + 180) % 360 - 90})`} />
-                            </g>
-
-                            {/* Green highlight on favored end */}
-                            <rect x="155" y="28" width="27" height="24" fill="#22c55e" opacity="0.3" rx="4" />
-                          </svg>
-
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 16, fontWeight: 800, color: '#166534', marginBottom: 4 }}>
-                              Runway {favoredRunway.toString().padStart(2, '0')}
-                            </div>
-                            <div style={{ fontSize: 12, color: '#64748b' }}>
-                              Headwind component: ~{windSpeed} kts
-                            </div>
-                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 4, fontStyle: 'italic' }}>
-                              Wind from {windDir}° favors Runway {favoredRunway.toString().padStart(2, '0')} for landing
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
+                  {selected.metar.wind && (
+                    <RunwayDiagram
+                      runways={selected.runways}
+                      wind={selected.metar.wind}
+                      loading={selected.runwaysLoading}
+                      error={selected.runwaysError}
+                      icao={selected.icao}
+                    />
+                  )}
 
                   {/* Clouds */}
                   {selected.metar.clouds && selected.metar.clouds.length > 0 && (
