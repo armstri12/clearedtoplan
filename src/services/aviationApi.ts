@@ -305,15 +305,31 @@ export async function getNearestTaf(icao: string): Promise<TafData | null> {
 
   try {
     // First get METAR to get coordinates
-    const metar = await getMetar(icao);
-    if (!metar || !metar.elevation) {
+    const metarUrl = `${WORKER_URL}/metar?ids=${icao.toUpperCase()}&format=json`;
+    const metarResponse = await fetch(metarUrl);
+
+    if (!metarResponse.ok) {
       return null;
     }
 
-    // Try to get TAF within a radius (using radialDistance parameter)
-    // This searches for TAFs within ~50nm of the airport
-    const url = `${WORKER_URL}/taf?radialDistance=50;${icao.toUpperCase()}&format=json`;
-    const response = await fetch(url);
+    const metarData: AvWxMetarRaw[] = await metarResponse.json();
+
+    if (!metarData || metarData.length === 0 || !metarData[0].lat || !metarData[0].lon) {
+      return null;
+    }
+
+    const { lat, lon } = metarData[0];
+
+    // Search for TAFs within 50nm using lat/lon
+    // Format: minLat,minLon,maxLat,maxLon (approximately 50nm box)
+    const degreeOffset = 0.75; // Roughly 50nm
+    const minLat = lat - degreeOffset;
+    const maxLat = lat + degreeOffset;
+    const minLon = lon - degreeOffset;
+    const maxLon = lon + degreeOffset;
+
+    const tafUrl = `${WORKER_URL}/taf?bbox=${minLon},${minLat},${maxLon},${maxLat}&format=json`;
+    const response = await fetch(tafUrl);
 
     if (!response.ok) {
       return null;
@@ -325,9 +341,15 @@ export async function getNearestTaf(icao: string): Promise<TafData | null> {
       return null;
     }
 
+    // Filter out the original airport if it appears in results
+    const nearbyTafs = data.filter(taf => taf.icaoId !== icao.toUpperCase());
+
+    if (nearbyTafs.length === 0) {
+      return null;
+    }
+
     // Return the first (nearest) TAF found
-    const nearestTaf = normalizeTaf(data[0]);
-    return nearestTaf;
+    return normalizeTaf(nearbyTafs[0]);
   } catch (error) {
     console.error('Error fetching nearest TAF:', error);
     return null;
