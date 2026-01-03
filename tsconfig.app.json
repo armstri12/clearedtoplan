@@ -21,7 +21,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+    "paths": {
+      "zustand": ["./src/vendor/zustand.ts"],
+      "zustand/shallow": ["./src/vendor/zustand.ts"]
+    }
   },
   "include": ["src"]
 }

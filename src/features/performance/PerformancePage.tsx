@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useFlightSession } from '../../context/FlightSessionContext';
+import { calculateLandingDistance, calculateTakeoffDistance, getRunwaySafetyLevel } from '../../lib/performance/takeoffLanding';
 import { getMetar, parseIcaoCode, type MetarData } from '../../services/aviationApi';
 
 // Standard atmosphere constants
@@ -68,289 +69,6 @@ function celsiusToFahrenheit(c: number): number {
 
 function fahrenheitToCelsius(f: number): number {
   return Math.round((f - 32) * 5/9 * 10) / 10;
-}
-
-// ===== TAKEOFF/LANDING DISTANCE CALCULATOR =====
-
-type CorrectionApplied = {
-  factor: string;
-  description: string;
-  multiplier: number;
-};
-
-type DistanceResults = {
-  groundRoll: number;
-  over50ft: number;
-  corrections: CorrectionApplied[];
-  baselineGroundRoll: number;
-  baselineOver50ft: number;
-  safetyMargin: number;
-};
-
-// Correction factors based on FAA guidance and POH standards
-const TAKEOFF_CORRECTIONS = {
-  headwindFactor: -0.10 / 9,      // -10% per 9kt = -1.11% per kt
-  tailwindFactor: 0.10 / 2,       // +10% per 2kt = +5% per kt
-  grass: 1.15,                     // +15%
-  gravel: 1.15,                    // +15%
-  wetPaved: 1.15,                  // +15%
-  wetGrass: 1.32,                  // +15% × +15% = +32%
-  uphillFactor: 0.22,              // +22% per 1% upslope
-  downhillFactor: -0.07,           // -7% per 1% downslope
-  highHumidity: 1.10,              // +10%
-  safetyMargin: 1.5,               // 1.5× (AOPA recommendation)
-};
-
-const LANDING_CORRECTIONS = {
-  headwindFactor: -0.10 / 9,      // -10% per 9kt
-  tailwindFactor: 0.10 / 2,       // +10% per 2kt
-  grass: 1.15,                     // +15%
-  gravel: 1.15,                    // +15%
-  wetPaved: 1.35,                  // +35%
-  wetGrass: 1.60,                  // +60%
-  uphillFactor: -0.07,             // -7% per 1% upslope (helps landing)
-  downhillFactor: 0.22,            // +22% per 1% downslope (hurts landing)
-  safetyMargin: 1.5,               // 1.5×
-};
-
-function calculateTakeoffDistance(
-  pohGroundRoll: number,
-  pohOver50ft: number,
-  windKts: number,
-  runwayType: 'paved' | 'grass' | 'gravel',
-  runwayCondition: 'dry' | 'wet',
-  runwaySlope: number,
-  humidity: 'normal' | 'high'
-): DistanceResults {
-  let groundRoll = pohGroundRoll;
-  let over50ft = pohOver50ft;
-  const corrections: CorrectionApplied[] = [];
-
-  // 1. Wind correction
-  if (windKts !== 0) {
-    const windFactor = windKts > 0
-      ? TAKEOFF_CORRECTIONS.headwindFactor * windKts
-      : TAKEOFF_CORRECTIONS.tailwindFactor * Math.abs(windKts);
-    const windMultiplier = 1 + windFactor;
-
-    groundRoll *= windMultiplier;
-    over50ft *= windMultiplier;
-
-    corrections.push({
-      factor: 'Wind',
-      description: windKts > 0
-        ? `${windKts}kt headwind`
-        : `${Math.abs(windKts)}kt tailwind`,
-      multiplier: windMultiplier,
-    });
-  }
-
-  // 2. Runway surface/condition
-  if (runwayType === 'grass') {
-    const surfaceMultiplier = runwayCondition === 'wet'
-      ? TAKEOFF_CORRECTIONS.wetGrass
-      : TAKEOFF_CORRECTIONS.grass;
-
-    groundRoll *= surfaceMultiplier;
-    over50ft *= surfaceMultiplier;
-
-    corrections.push({
-      factor: 'Runway Surface',
-      description: runwayCondition === 'wet' ? 'Wet grass' : 'Dry grass',
-      multiplier: surfaceMultiplier,
-    });
-  } else if (runwayType === 'gravel') {
-    groundRoll *= TAKEOFF_CORRECTIONS.gravel;
-    over50ft *= TAKEOFF_CORRECTIONS.gravel;
-    corrections.push({
-      factor: 'Runway Surface',
-      description: 'Gravel',
-      multiplier: TAKEOFF_CORRECTIONS.gravel,
-    });
-  } else if (runwayCondition === 'wet') {
-    groundRoll *= TAKEOFF_CORRECTIONS.wetPaved;
-    over50ft *= TAKEOFF_CORRECTIONS.wetPaved;
-    corrections.push({
-      factor: 'Runway Condition',
-      description: 'Wet paved',
-      multiplier: TAKEOFF_CORRECTIONS.wetPaved,
-    });
-  }
-
-  // 3. Runway slope
-  if (runwaySlope !== 0) {
-    const slopeFactor = runwaySlope > 0
-      ? TAKEOFF_CORRECTIONS.uphillFactor * runwaySlope
-      : TAKEOFF_CORRECTIONS.downhillFactor * Math.abs(runwaySlope);
-    const slopeMultiplier = 1 + slopeFactor;
-
-    groundRoll *= slopeMultiplier;
-    over50ft *= slopeMultiplier;
-
-    corrections.push({
-      factor: 'Runway Slope',
-      description: runwaySlope > 0
-        ? `${runwaySlope}% upslope`
-        : `${Math.abs(runwaySlope)}% downslope`,
-      multiplier: slopeMultiplier,
-    });
-  }
-
-  // 4. Humidity
-  if (humidity === 'high') {
-    groundRoll *= TAKEOFF_CORRECTIONS.highHumidity;
-    over50ft *= TAKEOFF_CORRECTIONS.highHumidity;
-    corrections.push({
-      factor: 'Humidity',
-      description: 'High humidity',
-      multiplier: TAKEOFF_CORRECTIONS.highHumidity,
-    });
-  }
-
-  // 5. Safety margin
-  const finalGroundRoll = Math.round(groundRoll * TAKEOFF_CORRECTIONS.safetyMargin);
-  const finalOver50ft = Math.round(over50ft * TAKEOFF_CORRECTIONS.safetyMargin);
-
-  return {
-    groundRoll: finalGroundRoll,
-    over50ft: finalOver50ft,
-    corrections,
-    baselineGroundRoll: pohGroundRoll,
-    baselineOver50ft: pohOver50ft,
-    safetyMargin: TAKEOFF_CORRECTIONS.safetyMargin,
-  };
-}
-
-function calculateLandingDistance(
-  pohGroundRoll: number,
-  pohOver50ft: number,
-  windKts: number,
-  runwayType: 'paved' | 'grass' | 'gravel',
-  runwayCondition: 'dry' | 'wet',
-  runwaySlope: number
-): DistanceResults {
-  let groundRoll = pohGroundRoll;
-  let over50ft = pohOver50ft;
-  const corrections: CorrectionApplied[] = [];
-
-  // 1. Wind correction (same as takeoff)
-  if (windKts !== 0) {
-    const windFactor = windKts > 0
-      ? LANDING_CORRECTIONS.headwindFactor * windKts
-      : LANDING_CORRECTIONS.tailwindFactor * Math.abs(windKts);
-    const windMultiplier = 1 + windFactor;
-
-    groundRoll *= windMultiplier;
-    over50ft *= windMultiplier;
-
-    corrections.push({
-      factor: 'Wind',
-      description: windKts > 0
-        ? `${windKts}kt headwind`
-        : `${Math.abs(windKts)}kt tailwind`,
-      multiplier: windMultiplier,
-    });
-  }
-
-  // 2. Runway surface/condition
-  if (runwayType === 'grass') {
-    const surfaceMultiplier = runwayCondition === 'wet'
-      ? LANDING_CORRECTIONS.wetGrass
-      : LANDING_CORRECTIONS.grass;
-
-    groundRoll *= surfaceMultiplier;
-    over50ft *= surfaceMultiplier;
-
-    corrections.push({
-      factor: 'Runway Surface',
-      description: runwayCondition === 'wet' ? 'Wet grass' : 'Dry grass',
-      multiplier: surfaceMultiplier,
-    });
-  } else if (runwayType === 'gravel') {
-    groundRoll *= LANDING_CORRECTIONS.gravel;
-    over50ft *= LANDING_CORRECTIONS.gravel;
-    corrections.push({
-      factor: 'Runway Surface',
-      description: 'Gravel',
-      multiplier: LANDING_CORRECTIONS.gravel,
-    });
-  } else if (runwayCondition === 'wet') {
-    groundRoll *= LANDING_CORRECTIONS.wetPaved;
-    over50ft *= LANDING_CORRECTIONS.wetPaved;
-    corrections.push({
-      factor: 'Runway Condition',
-      description: 'Wet paved',
-      multiplier: LANDING_CORRECTIONS.wetPaved,
-    });
-  }
-
-  // 3. Runway slope (opposite effect for landing)
-  if (runwaySlope !== 0) {
-    const slopeFactor = runwaySlope > 0
-      ? LANDING_CORRECTIONS.uphillFactor * runwaySlope  // uphill HELPS landing
-      : LANDING_CORRECTIONS.downhillFactor * Math.abs(runwaySlope);  // downhill HURTS landing
-    const slopeMultiplier = 1 + slopeFactor;
-
-    groundRoll *= slopeMultiplier;
-    over50ft *= slopeMultiplier;
-
-    corrections.push({
-      factor: 'Runway Slope',
-      description: runwaySlope > 0
-        ? `${runwaySlope}% upslope (helps)`
-        : `${Math.abs(runwaySlope)}% downslope (hurts)`,
-      multiplier: slopeMultiplier,
-    });
-  }
-
-  // 4. Safety margin
-  const finalGroundRoll = Math.round(groundRoll * LANDING_CORRECTIONS.safetyMargin);
-  const finalOver50ft = Math.round(over50ft * LANDING_CORRECTIONS.safetyMargin);
-
-  return {
-    groundRoll: finalGroundRoll,
-    over50ft: finalOver50ft,
-    corrections,
-    baselineGroundRoll: pohGroundRoll,
-    baselineOver50ft: pohOver50ft,
-    safetyMargin: LANDING_CORRECTIONS.safetyMargin,
-  };
-}
-
-function getRunwaySafetyLevel(requiredFt: number, availableFt: number | null) {
-  if (!availableFt || availableFt === 0) {
-    return {
-      level: 'unknown',
-      color: '#6b7280',
-      bgColor: '#f3f4f6',
-      message: 'Enter runway length to assess safety',
-    };
-  }
-
-  const percentage = (requiredFt / availableFt) * 100;
-
-  if (percentage <= 70) {
-    return {
-      level: 'safe',
-      color: '#059669',
-      bgColor: '#ecfdf5',
-      message: `✅ SAFE: Using ${Math.round(percentage)}% of runway (≤70% recommended)`,
-    };
-  } else if (percentage <= 85) {
-    return {
-      level: 'caution',
-      color: '#d97706',
-      bgColor: '#fffbeb',
-      message: `⚠️ CAUTION: Using ${Math.round(percentage)}% of runway. Limited margin - consider conditions carefully.`,
-    };
-  } else {
-    return {
-      level: 'danger',
-      color: '#dc2626',
-      bgColor: '#fef2f2',
-      message: `⛔ DANGER: Requires ${Math.round(percentage)}% of runway. INSUFFICIENT - DO NOT ATTEMPT.`,
-    };
-  }
 }
 
 export default function PerformancePage() {
@@ -478,15 +196,15 @@ export default function PerformancePage() {
 
   // Takeoff distance calculations
   const takeoffResults = useMemo(() => {
-    return calculateTakeoffDistance(
-      Number(toPohGroundRoll) || 0,
-      Number(toPohOver50ft) || 0,
-      Number(toWind) || 0,
-      toRunwayType,
-      toRunwayCondition,
-      Number(toRunwaySlope) || 0,
-      toHumidity
-    );
+    return calculateTakeoffDistance({
+      pohGroundRoll: Number(toPohGroundRoll) || 0,
+      pohDistanceOver50ft: Number(toPohOver50ft) || 0,
+      windComponent: Number(toWind) || 0,
+      runwayType: toRunwayType,
+      runwayCondition: toRunwayCondition,
+      runwaySlope: Number(toRunwaySlope) || 0,
+      humidity: toHumidity,
+    });
   }, [toPohGroundRoll, toPohOver50ft, toWind, toRunwayType, toRunwayCondition, toRunwaySlope, toHumidity]);
 
   const takeoffSafety = useMemo(() => {
@@ -495,14 +213,14 @@ export default function PerformancePage() {
 
   // Landing distance calculations
   const landingResults = useMemo(() => {
-    return calculateLandingDistance(
-      Number(landPohGroundRoll) || 0,
-      Number(landPohOver50ft) || 0,
-      Number(landWind) || 0,
-      landRunwayType,
-      landRunwayCondition,
-      Number(landRunwaySlope) || 0
-    );
+    return calculateLandingDistance({
+      pohGroundRoll: Number(landPohGroundRoll) || 0,
+      pohDistanceOver50ft: Number(landPohOver50ft) || 0,
+      windComponent: Number(landWind) || 0,
+      runwayType: landRunwayType,
+      runwayCondition: landRunwayCondition,
+      runwaySlope: Number(landRunwaySlope) || 0,
+    });
   }, [landPohGroundRoll, landPohOver50ft, landWind, landRunwayType, landRunwayCondition, landRunwaySlope]);
 
   const landingSafety = useMemo(() => {
