@@ -34,4 +34,13 @@
     break-inside: avoid;
     page-break-inside: avoid;
   }
+
+  .briefing-printable {
+    box-shadow: none;
+    border-color: #cbd5e1;
+  }
+
+  .briefing-card {
+    background: #fff !important;
+  }
 }

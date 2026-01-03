@@ -31,7 +31,7 @@ export function useTripWizardCompletion(): { completion: CompletionMap } {
         (state.loading.takeoffWeight && state.loading.landingWeight),
     );
 
-    const exportComplete = Boolean(state.brief.summary && state.brief.exportReadyText);
+    const exportComplete = Boolean(basicsComplete && weatherComplete && performanceComplete);
 
     return {
       completion: {

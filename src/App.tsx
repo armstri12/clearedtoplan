@@ -16,7 +16,7 @@ import { StepGuard } from './components/TripWizard/StepGuard';
 import { BasicsStep } from './components/TripWizard/steps/BasicsStep';
 import { WeatherStep } from './components/TripWizard/steps/WeatherStep';
 import { PerformanceStep } from './components/TripWizard/steps/PerformanceStep';
-import { ExportStep } from './components/TripWizard/steps/ExportStep';
+import { ExportBriefStep } from './components/TripWizard/steps/ExportBriefStep';
 
 // Consistent color scheme
 const COLORS = {
@@ -425,7 +425,7 @@ export default function App() {
             element=
               {(
                 <StepGuard step="export">
-                  <ExportStep />
+                  <ExportBriefStep />
                 </StepGuard>
               )}
           />
