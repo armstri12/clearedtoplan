@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useTripWizardCompletion, TRIP_WIZARD_PATHS, TRIP_WIZARD_STEPS, type TripWizardStep } from './StepGuard';
 import './tripWizard.css';
 
@@ -21,6 +21,7 @@ export function TripWizardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { completion } = useTripWizardCompletion();
+  const headingRef = useRef<HTMLHeadingElement>(null);
 
   const activeStep = getStepFromPath(location.pathname);
   const activeIndex = TRIP_WIZARD_STEPS.indexOf(activeStep);
@@ -53,10 +54,14 @@ export function TripWizardLayout() {
 
   const nextLabel = activeStep === 'export' ? 'Finish' : 'Next';
 
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, [activeStep]);
+
   return (
     <div className="tripwizard-shell">
       <div className="tripwizard-heading">
-        <h1>Trip Wizard</h1>
+        <h1 ref={headingRef} tabIndex={-1}>Trip Wizard</h1>
         <p>Guided planning for your next flight, step by step.</p>
       </div>
 
@@ -77,6 +82,15 @@ export function TripWizardLayout() {
               key={step}
               to={TRIP_WIZARD_PATHS[step]}
               className={`tripwizard-step ${stateClass}`}
+              onKeyDown={(event) => {
+                if ((event.key === 'Enter' || event.key === ' ') && !locked) {
+                  event.preventDefault();
+                  goToStep(step);
+                }
+                if ((event.key === 'Enter' || event.key === ' ') && locked) {
+                  event.preventDefault();
+                }
+              }}
               onClick={(event) => {
                 if (locked) {
                   event.preventDefault();

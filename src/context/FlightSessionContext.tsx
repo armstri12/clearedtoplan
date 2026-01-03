@@ -149,11 +149,15 @@ export type FlightSessionWeather = {
     icao: string;
     metar?: any;
     taf?: any;
+    notams?: string[];
+    fetchedAt?: string;
   };
   destination: {
     icao: string;
     metar?: any;
     taf?: any;
+    notams?: string[];
+    fetchedAt?: string;
   };
   windsAloft?: {
     direction: number;  // degrees true

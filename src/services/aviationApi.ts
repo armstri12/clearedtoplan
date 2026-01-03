@@ -180,7 +180,7 @@ export type TafData = {
 };
 
 // Configuration - Cloudflare Worker URL for proxying API requests
-const WORKER_URL = import.meta.env.VITE_WEATHER_API_URL || '';
+const WORKER_URL = (import.meta?.env?.VITE_WEATHER_API_URL as string | undefined) || '';
 
 /**
  * Converts temperature from Celsius to Fahrenheit

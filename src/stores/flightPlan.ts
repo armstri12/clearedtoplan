@@ -1,7 +1,8 @@
 import { createContext, createElement, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { createStore, shallow, useStore, type StoreApi } from 'zustand';
-import { useAuth } from '../context/AuthContext';
-import { useFlightSession, type FlightSession } from '../context/FlightSessionContext';
+import { createStore, shallow, useStore, type StoreApi } from '../vendor/zustand.js';
+import { useAuth } from '../context/AuthContext.js';
+import { useFlightSession, type FlightSession } from '../context/FlightSessionContext.js';
+import { buildDemoWeather, demoBasics, demoBrief, demoLoading, demoPerformance } from '../lib/fixtures/demoSnapshots.js';
 import type { TakeoffInputs, DistanceResults, LandingInputs } from '../lib/performance/takeoffLanding';
 import type { MetarData, TafData } from '../services/aviationApi';
 
@@ -161,27 +162,38 @@ function createFlightPlanStore(defaultSlices: FlightPlanSlices) {
 }
 
 function deriveWeather(session: FlightSession | null): WeatherAndNotams {
+  if (!session) {
+    return buildDemoWeather();
+  }
+
+  const fallback = buildDemoWeather();
+
   return {
     departure: {
-      icao: session?.weather?.departure?.icao ?? session?.metadata.departure,
-      metar: session?.weather?.departure?.metar,
-      taf: session?.weather?.departure?.taf,
+      icao: session.weather?.departure?.icao ?? session.metadata.departure ?? fallback.departure.icao,
+      metar: session.weather?.departure?.metar ?? fallback.departure.metar,
+      taf: session.weather?.departure?.taf ?? fallback.departure.taf,
+      notams: session.weather?.departure?.notams ?? fallback.departure.notams,
+      fetchedAt: session.weather?.departure?.fetchedAt ?? fallback.departure.fetchedAt,
     },
     destination: {
-      icao: session?.weather?.destination?.icao ?? session?.metadata.destination,
-      metar: session?.weather?.destination?.metar,
-      taf: session?.weather?.destination?.taf,
+      icao: session.weather?.destination?.icao ?? session.metadata.destination ?? fallback.destination.icao,
+      metar: session.weather?.destination?.metar ?? fallback.destination.metar,
+      taf: session.weather?.destination?.taf ?? fallback.destination.taf,
+      notams: session.weather?.destination?.notams ?? fallback.destination.notams,
+      fetchedAt: session.weather?.destination?.fetchedAt ?? fallback.destination.fetchedAt,
     },
-    alternates: (session?.metadata.alternates ?? []).map((icao) => ({ icao })),
-    briefingNotes: session?.metadata.lessonType
+    alternates: (session.metadata.alternates ?? fallback.alternates).map((icao) =>
+      typeof icao === 'string' ? { icao } : icao),
+    briefingNotes: session.metadata.lessonType
       ? `Lesson type: ${session.metadata.lessonType}`
-      : undefined,
+      : fallback.briefingNotes,
   };
 }
 
 function derivePerformance(session: FlightSession | null): PerformancePlan {
   if (!session?.performance) {
-    return {};
+    return structuredClone(demoPerformance);
   }
 
   return {
@@ -198,46 +210,61 @@ function derivePerformance(session: FlightSession | null): PerformancePlan {
 }
 
 function deriveLoading(session: FlightSession | null): LoadingPlan {
+  if (!session) {
+    return structuredClone(demoLoading);
+  }
+
   return {
-    rampWeight: session?.weightBalance?.rampWeight,
-    takeoffWeight: session?.weightBalance?.takeoffWeight,
-    landingWeight: session?.weightBalance?.landingWeight,
-    taxiFuelGal: session?.weightBalance?.taxiFuelGal,
-    plannedBurnGal: session?.weightBalance?.plannedBurnGal,
-    centerOfGravity: session?.weightBalance?.takeoffCG,
-    payloadNotes: session?.aircraft?.ident
+    rampWeight: session.weightBalance?.rampWeight ?? demoLoading.rampWeight,
+    takeoffWeight: session.weightBalance?.takeoffWeight ?? demoLoading.takeoffWeight,
+    landingWeight: session.weightBalance?.landingWeight ?? demoLoading.landingWeight,
+    taxiFuelGal: session.weightBalance?.taxiFuelGal ?? demoLoading.taxiFuelGal,
+    plannedBurnGal: session.weightBalance?.plannedBurnGal ?? demoLoading.plannedBurnGal,
+    centerOfGravity: session.weightBalance?.takeoffCG ?? demoLoading.centerOfGravity,
+    payloadNotes: session.aircraft?.ident
       ? `Configured for ${session.aircraft.ident}${session.aircraft.type ? ` (${session.aircraft.type})` : ''}`
-      : undefined,
+      : demoLoading.payloadNotes,
   };
 }
 
 function deriveBasics(user: ReturnType<typeof useAuth>['user'], session: FlightSession | null): FlightPlanBasics {
+  if (!session) {
+    return {
+      ...structuredClone(demoBasics),
+      pilot: user?.username ?? demoBasics.pilot,
+    };
+  }
+
   return {
-    title: session?.name ?? 'New Flight Plan',
+    title: session.name ?? 'New Flight Plan',
     pilot: user?.username ?? 'Pilot',
-    route: session?.metadata.route ?? session?.navlog?.route,
-    departure: session?.metadata.departure ?? session?.navlog?.departure ?? session?.weather?.departure?.icao,
-    destination: session?.metadata.destination ?? session?.navlog?.destination ?? session?.weather?.destination?.icao,
-    departureTime: session?.metadata.departureTime ?? session?.metadata.etd ?? session?.navlog?.departureTime,
-    etd: session?.metadata.etd ?? session?.navlog?.departureTime,
-    eta: session?.metadata.eta ?? session?.navlog?.arrivalTime,
-    lessonType: session?.metadata.lessonType,
-    aircraftIdent: session?.aircraft?.ident,
-    aircraftType: session?.aircraft?.type,
-    aircraftProfileId: session?.aircraft?.profileId,
-    fuelPolicy: session?.metadata.fuelPolicy,
-    notes: session?.metadata.notes,
+    route: session.metadata.route ?? session.navlog?.route ?? demoBasics.route,
+    departure: session.metadata.departure ?? session.navlog?.departure ?? session.weather?.departure?.icao ?? demoBasics.departure,
+    destination: session.metadata.destination ?? session.navlog?.destination ?? session.weather?.destination?.icao ?? demoBasics.destination,
+    departureTime: session.metadata.departureTime ?? session.metadata.etd ?? session.navlog?.departureTime ?? demoBasics.departureTime,
+    etd: session.metadata.etd ?? session.navlog?.departureTime ?? demoBasics.etd,
+    eta: session.metadata.eta ?? session.navlog?.arrivalTime ?? demoBasics.eta,
+    lessonType: session.metadata.lessonType ?? demoBasics.lessonType,
+    aircraftIdent: session.aircraft?.ident ?? demoBasics.aircraftIdent,
+    aircraftType: session.aircraft?.type ?? demoBasics.aircraftType,
+    aircraftProfileId: session.aircraft?.profileId ?? demoBasics.aircraftProfileId,
+    fuelPolicy: session.metadata.fuelPolicy ?? demoBasics.fuelPolicy,
+    notes: session.metadata.notes ?? demoBasics.notes,
   };
 }
 
 function deriveBrief(session: FlightSession | null): BriefContent {
+  if (!session) {
+    return structuredClone(demoBrief);
+  }
+
   return {
-    summary: session?.metadata.route
+    summary: session.metadata.route
       ? `Route: ${session.metadata.route}`
-      : 'Draft flight briefing',
+      : demoBrief.summary ?? 'Draft flight briefing',
     exportReadyText: '',
     updatedAt: new Date().toISOString(),
-    audience: 'pilot',
+    audience: session.metadata.lessonType ? 'student' : 'pilot',
   };
 }
 
@@ -252,6 +279,11 @@ function createInitialFlightPlanState(
     loading: deriveLoading(session),
     brief: deriveBrief(session),
   };
+}
+
+// Test-only helper to exercise reducer behavior without React wiring
+export function createFlightPlanStoreForTest(defaultSlices: FlightPlanSlices) {
+  return createFlightPlanStore(structuredClone(defaultSlices));
 }
 
 export function FlightPlanProvider({ children }: { children: ReactNode }) {

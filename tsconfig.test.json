@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "outDir": "./.test-dist",
+    "noEmit": false,
+    "types": ["node", "vite/client"],
+    "moduleResolution": "bundler",
+    "module": "ESNext",
+    "jsx": "react-jsx",
+    "allowImportingTsExtensions": false,
+    "paths": {
+      "zustand": ["./src/vendor/zustand.ts"],
+      "zustand/shallow": ["./src/vendor/zustand.ts"]
+    }
+  },
+  "exclude": [
+    "src/lib/briefing/pdf.ts"
+  ],
+  "include": [
+    "src/lib/**/*.ts",
+    "src/services/**/*.ts",
+    "src/stores/**/*.ts",
+    "src/lib/**/*.test.ts",
+    "src/stores/**/*.test.ts"
+  ]
+}
