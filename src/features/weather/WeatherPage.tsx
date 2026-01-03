@@ -164,13 +164,17 @@ function RunwayDiagram({
     return best;
   }, null), [visuals]);
 
-  const center = 120;
-  const radius = 90;
+  const size = 320;
+  const center = size / 2;
+  const radius = center - 34;
 
   return (
-    <div style={{ padding: 12, borderRadius: 8, background: '#f0fdf4', border: '1px solid #86efac', marginBottom: 12 }}>
-      <div style={{ fontSize: 11, fontWeight: 800, opacity: 0.7, marginBottom: 8 }}>
-        🛬 Runway configuration ({icao}) with live wind from {windDir.toString().padStart(3, '0')}° @ {windSpeed} kt
+    <div style={{ padding: 14, borderRadius: 12, background: '#ecfdf3', border: '1px solid #86efac', marginBottom: 12 }}>
+      <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.8, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: '50%', background: '#22c55e', color: '#fff', fontWeight: 900 }}>
+          🛬
+        </span>
+        <span>Runway configuration for {icao} — wind {windDir.toString().padStart(3, '0')}° at {windSpeed} kt</span>
       </div>
 
       {loading && (
@@ -192,125 +196,146 @@ function RunwayDiagram({
       )}
 
       {visuals.length > 0 && (
-        <>
-          <svg viewBox="0 0 240 240" style={{ width: '100%', background: '#fff', borderRadius: 8, border: '1px solid #d1d5db' }}>
-            <circle cx={center} cy={center} r={radius + 18} fill="#f8fafc" stroke="#e2e8f0" strokeWidth={1} />
-            <text x={center} y={28} textAnchor="middle" fontSize="10" fill="#64748b">N</text>
-            <text x={center} y={234} textAnchor="middle" fontSize="10" fill="#64748b">S</text>
-            <text x={20} y={center + 3} textAnchor="middle" fontSize="10" fill="#64748b">W</text>
-            <text x={220} y={center + 3} textAnchor="middle" fontSize="10" fill="#64748b">E</text>
-
-            {/* Wind arrow (coming from) */}
-            <g transform={`translate(${center}, ${center}) rotate(${windDir - 90})`}>
-              <line x1={0} y1={-radius} x2={0} y2={radius * 0.2} stroke="#16a34a" strokeWidth={4} strokeLinecap="round" />
-              <polygon points={`0,${-radius - 6} 7,${-radius + 8} -7,${-radius + 8}`} fill="#16a34a" />
-              <circle cx={0} cy={0} r={4} fill="#16a34a" />
-            </g>
-
-            {visuals.map(runway => {
-              if (runway.heading === null) return null;
-
-              const axis = (runway.heading * Math.PI) / 180;
-              const visualLength = 70 + Math.min(90, (runway.length ?? 5000) / 120);
-              const half = visualLength / 2;
-              const dx = Math.sin(axis) * half;
-              const dy = Math.cos(axis) * half;
-              const baseStroke = runway.id === highlighted?.id ? '#16a34a' : '#475569';
-              const overlayStroke = runway.id === highlighted?.id ? '#22c55e' : '#94a3b8';
-              const strokeWidth = 6 + Math.min(4, ((runway.width ?? 150) - 75) / 75);
-
-              const startX = center - dx;
-              const startY = center + dy;
-              const endX = center + dx;
-              const endY = center - dy;
-              const labelOffsetX = Math.cos(axis) * 10;
-              const labelOffsetY = Math.sin(axis) * 10;
-
-              return (
-                <g key={runway.id}>
-                  <line
-                    x1={startX}
-                    y1={startY}
-                    x2={endX}
-                    y2={endY}
-                    stroke={overlayStroke}
-                    strokeWidth={strokeWidth + 4}
-                    strokeLinecap="round"
-                    opacity={0.35}
-                  />
-                  <line
-                    x1={startX}
-                    y1={startY}
-                    x2={endX}
-                    y2={endY}
-                    stroke={baseStroke}
-                    strokeWidth={strokeWidth}
-                    strokeLinecap="round"
-                  />
-                  <text
-                    x={startX - labelOffsetX}
-                    y={startY - labelOffsetY}
-                    fontSize="10"
-                    fontWeight="700"
-                    textAnchor="middle"
-                    fill={runway.bestEnd === 'le' && runway.id === highlighted?.id ? '#166534' : '#0f172a'}
-                  >
-                    {runway.labels.start}
-                  </text>
-                  <text
-                    x={endX + labelOffsetX}
-                    y={endY + labelOffsetY}
-                    fontSize="10"
-                    fontWeight="700"
-                    textAnchor="middle"
-                    fill={runway.bestEnd === 'he' && runway.id === highlighted?.id ? '#166534' : '#0f172a'}
-                  >
-                    {runway.labels.end}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
-
-          {highlighted && highlighted.headwind !== undefined && highlighted.crosswind !== undefined && (
-            <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              <div style={{ padding: '8px 12px', borderRadius: 8, background: '#dcfce7', color: '#166534', fontWeight: 800 }}>
-                Best: {highlighted.bestEnd === 'le'
-                  ? highlighted.labels.start
-                  : highlighted.bestEnd === 'he'
-                    ? highlighted.labels.end
-                    : `${highlighted.labels.start}/${highlighted.labels.end}`}
-              </div>
-              <div style={{ padding: '8px 12px', borderRadius: 8, background: '#eef2ff', color: '#3730a3', fontWeight: 700 }}>
-                Headwind: {highlighted.headwind} kt
-              </div>
-              <div style={{ padding: '8px 12px', borderRadius: 8, background: '#e0f2fe', color: '#075985', fontWeight: 700 }}>
-                Crosswind: {highlighted.crosswind} kt ({highlighted.crosswind >= 0 ? 'from right' : 'from left'})
-              </div>
-            </div>
-          )}
-
-          <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8 }}>
-            {visuals.map(runway => (
-              <div key={`${runway.id}-summary`} style={{ padding: 10, borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff' }}>
-                <div style={{ fontWeight: 800, marginBottom: 4 }}>{runway.id}</div>
-                <div style={{ fontSize: 12, color: '#475569' }}>
-                  {runway.heading ? `Heading: ${runway.heading.toFixed(0)}°/${((runway.heading + 180) % 360 || 360).toFixed(0)}°` : 'Heading unavailable'}
-                </div>
-                <div style={{ fontSize: 12, color: '#475569' }}>
-                  {runway.length ? `${Math.round(runway.length).toLocaleString()} ft` : 'Length unknown'}
-                  {runway.surface && ` · ${runway.surface}`}
-                </div>
-                {runway.headwind !== undefined && runway.crosswind !== undefined && (
-                  <div style={{ fontSize: 12, marginTop: 6 }}>
-                    <span style={{ fontWeight: 700, color: '#166534' }}>{runway.headwind} kt</span> headwind /
-                    <span style={{ fontWeight: 700, color: '#0f172a' }}> {runway.crosswind} kt</span> crosswind
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {highlighted && highlighted.headwind !== undefined && highlighted.crosswind !== undefined && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
+                <div style={{ padding: '10px 12px', borderRadius: 10, background: '#16a34a', color: '#f8fafc', fontWeight: 900, boxShadow: '0 8px 18px rgba(22,163,74,0.25)' }}>
+                  <div style={{ fontSize: 11, opacity: 0.9, letterSpacing: 0.2 }}>BEST</div>
+                  <div style={{ fontSize: 18 }}>
+                    {highlighted.bestEnd === 'le'
+                      ? highlighted.labels.start
+                      : highlighted.bestEnd === 'he'
+                        ? highlighted.labels.end
+                        : `${highlighted.labels.start}/${highlighted.labels.end}`}
                   </div>
-                )}
+                  <div style={{ fontSize: 12, opacity: 0.9 }}>
+                    {highlighted.heading ? `Aligned ${highlighted.heading.toFixed(0)}° / ${((highlighted.heading + 180) % 360 || 360).toFixed(0)}°` : 'Heading unavailable'}
+                  </div>
+                </div>
+                <div style={{ padding: '10px 12px', borderRadius: 10, background: '#eef2ff', color: '#312e81', fontWeight: 800, border: '1px solid #e0e7ff' }}>
+                  <div style={{ fontSize: 11, opacity: 0.8, letterSpacing: 0.2 }}>HEADWIND</div>
+                  <div style={{ fontSize: 18 }}>{highlighted.headwind} kt</div>
+                  <div style={{ fontSize: 12, opacity: 0.8 }}>from {windDir.toString().padStart(3, '0')}°</div>
+                </div>
+                <div style={{ padding: '10px 12px', borderRadius: 10, background: '#e0f2fe', color: '#0f172a', fontWeight: 800, border: '1px solid #bae6fd' }}>
+                  <div style={{ fontSize: 11, opacity: 0.8, letterSpacing: 0.2 }}>CROSSWIND</div>
+                  <div style={{ fontSize: 18 }}>{Math.abs(highlighted.crosswind)} kt</div>
+                  <div style={{ fontSize: 12, opacity: 0.8 }}>{highlighted.crosswind >= 0 ? 'from right' : 'from left'}</div>
+                </div>
               </div>
-            ))}
+            )}
+
+            <div style={{ marginTop: 2, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+              {visuals.map(runway => (
+                <div key={`${runway.id}-summary`} style={{ padding: 12, borderRadius: 10, border: '1px solid #e2e8f0', background: '#fff', boxShadow: '0 6px 16px rgba(15,23,42,0.04)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <div style={{ fontWeight: 800 }}>{runway.id}</div>
+                    {runway.bestEnd && runway.id === highlighted?.id && (
+                      <span style={{ fontSize: 10, fontWeight: 800, padding: '4px 8px', borderRadius: 999, background: '#dcfce7', color: '#166534' }}>
+                        Favored
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#475569', marginBottom: 4 }}>
+                    {runway.heading ? `Heading ${runway.heading.toFixed(0)}°/${((runway.heading + 180) % 360 || 360).toFixed(0)}°` : 'Heading unavailable'}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#475569', marginBottom: 4 }}>
+                    {runway.length ? `${Math.round(runway.length).toLocaleString()} ft` : 'Length unknown'}
+                    {runway.surface && ` · ${runway.surface}`}
+                  </div>
+                  {runway.headwind !== undefined && runway.crosswind !== undefined && (
+                    <div style={{ fontSize: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 700, color: '#166534' }}>{runway.headwind} kt headwind</span>
+                      <span style={{ fontWeight: 700, color: '#0f172a' }}>{Math.abs(runway.crosswind)} kt crosswind</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </>
+
+          <div style={{ justifySelf: 'center', width: '100%', maxWidth: 360 }}>
+            <svg viewBox={`0 0 ${size} ${size}`} style={{ width: '100%', height: 'auto', background: '#fff', borderRadius: 16, border: '1px solid #d1d5db', boxShadow: '0 10px 24px rgba(15,23,42,0.08)' }}>
+              <circle cx={center} cy={center} r={radius + 16} fill="#f8fafc" stroke="#e2e8f0" strokeWidth={1.2} />
+              <text x={center} y={28} textAnchor="middle" fontSize="11" fill="#475569" fontWeight={700}>N</text>
+              <text x={center} y={size - 16} textAnchor="middle" fontSize="11" fill="#475569" fontWeight={700}>S</text>
+              <text x={24} y={center + 3} textAnchor="middle" fontSize="11" fill="#475569" fontWeight={700}>W</text>
+              <text x={size - 24} y={center + 3} textAnchor="middle" fontSize="11" fill="#475569" fontWeight={700}>E</text>
+
+              {/* Wind arrow (coming from) */}
+              <g transform={`translate(${center}, ${center}) rotate(${windDir - 90})`}>
+                <line x1={0} y1={-radius} x2={0} y2={radius * 0.18} stroke="#16a34a" strokeWidth={5} strokeLinecap="round" />
+                <polygon points={`0,${-radius - 8} 9,${-radius + 10} -9,${-radius + 10}`} fill="#16a34a" />
+                <circle cx={0} cy={0} r={5} fill="#16a34a" />
+              </g>
+
+              {visuals.map(runway => {
+                if (runway.heading === null) return null;
+
+                const axis = (runway.heading * Math.PI) / 180;
+                const visualLength = 70 + Math.min(80, (runway.length ?? 5000) / 130);
+                const half = visualLength / 2;
+                const dx = Math.sin(axis) * half;
+                const dy = Math.cos(axis) * half;
+                const baseStroke = runway.id === highlighted?.id ? '#16a34a' : '#475569';
+                const overlayStroke = runway.id === highlighted?.id ? '#22c55e' : '#94a3b8';
+                const strokeWidth = 6 + Math.min(4, ((runway.width ?? 150) - 75) / 75);
+
+                const startX = center - dx;
+                const startY = center + dy;
+                const endX = center + dx;
+                const endY = center - dy;
+                const labelOffsetX = Math.cos(axis) * 10;
+                const labelOffsetY = Math.sin(axis) * 10;
+
+                return (
+                  <g key={runway.id}>
+                    <line
+                      x1={startX}
+                      y1={startY}
+                      x2={endX}
+                      y2={endY}
+                      stroke={overlayStroke}
+                      strokeWidth={strokeWidth + 4}
+                      strokeLinecap="round"
+                      opacity={0.32}
+                    />
+                    <line
+                      x1={startX}
+                      y1={startY}
+                      x2={endX}
+                      y2={endY}
+                      stroke={baseStroke}
+                      strokeWidth={strokeWidth}
+                      strokeLinecap="round"
+                    />
+                    <text
+                      x={startX - labelOffsetX}
+                      y={startY - labelOffsetY}
+                      fontSize="11"
+                      fontWeight="800"
+                      textAnchor="middle"
+                      fill={runway.bestEnd === 'le' && runway.id === highlighted?.id ? '#166534' : '#0f172a'}
+                    >
+                      {runway.labels.start}
+                    </text>
+                    <text
+                      x={endX + labelOffsetX}
+                      y={endY + labelOffsetY}
+                      fontSize="11"
+                      fontWeight="800"
+                      textAnchor="middle"
+                      fill={runway.bestEnd === 'he' && runway.id === highlighted?.id ? '#166534' : '#0f172a'}
+                    >
+                      {runway.labels.end}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+        </div>
       )}
     </div>
   );
