@@ -108,6 +108,13 @@ export function TripHeader() {
                 Go to {STEP_LABELS[nextStep]} →
               </button>
             )}
+            <div
+              style={{ fontSize: 11, color: COLORS.textLight, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}
+              aria-label="Navigation controls are available in the header above."
+            >
+              <span aria-hidden="true">⬆️</span>
+              Navigation lives in the header above.
+            </div>
             {!nextStep && (
               <div style={{ fontSize: 12, color: COLORS.textLight, fontWeight: 600 }}>
                 You can still adjust any step before exporting.
