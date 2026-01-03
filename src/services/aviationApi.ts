@@ -491,7 +491,7 @@ export async function getNearestTaf(icao: string): Promise<TafData | null> {
       const minLon = lon - degreeOffset;
       const maxLon = lon + degreeOffset;
 
-      const tafUrl = `${WORKER_URL}/taf?bbox=${minLon},${minLat},${maxLon},${maxLat}&format=json`;
+      const tafUrl = `${WORKER_URL}/taf?bbox=${minLat},${minLon},${maxLat},${maxLon}&format=json`;
       console.log('TAF search URL:', tafUrl);
       console.log('Bounding box:', { minLat, maxLat, minLon, maxLon });
 
