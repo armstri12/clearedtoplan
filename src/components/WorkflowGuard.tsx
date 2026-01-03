@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useFlightSession, type FlightSession } from '../context/FlightSessionContext';
 
 const COLORS = {
@@ -17,9 +17,18 @@ type WorkflowGuardProps = {
 
 export function WorkflowGuard({ step, children }: WorkflowGuardProps) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { currentSession, canAccessStep, getNextStep } = useFlightSession();
 
+  // Check for debug mode
+  const debugMode = searchParams.get('debug') === 'true';
+
   useEffect(() => {
+    // Skip workflow enforcement in debug mode
+    if (debugMode) {
+      return;
+    }
+
     if (!currentSession) {
       // No active session - redirect to home
       navigate('/');
@@ -42,10 +51,10 @@ export function WorkflowGuard({ step, children }: WorkflowGuardProps) {
         navigate('/');
       }
     }
-  }, [currentSession, step, canAccessStep, getNextStep, navigate]);
+  }, [currentSession, step, canAccessStep, getNextStep, navigate, debugMode]);
 
-  // Show warning if trying to access locked step
-  if (!currentSession) {
+  // Show warning if trying to access locked step (skip in debug mode)
+  if (!debugMode && !currentSession) {
     return (
       <div
         style={{
@@ -82,7 +91,7 @@ export function WorkflowGuard({ step, children }: WorkflowGuardProps) {
     );
   }
 
-  if (!canAccessStep(step)) {
+  if (!debugMode && !canAccessStep(step)) {
     return (
       <div
         style={{
