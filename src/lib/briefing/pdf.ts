@@ -1,16 +1,63 @@
-type Html2CanvasFn = (element: HTMLElement, options?: Record<string, unknown>) => Promise<HTMLCanvasElement>;
+const HTML2CANVAS_URL = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+const JSPDF_URL = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
 
-export async function downloadElementAsPdf(element: HTMLElement, filename = 'flight-brief.pdf') {
-  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-    // Remote, on-demand imports to avoid bundling heavy PDF tooling in the main bundle
-    import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/+esm') as Promise<{ default: Html2CanvasFn }>,
-    import(/* @vite-ignore */ 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/+esm') as Promise<{ jsPDF: typeof import('jspdf').jsPDF }>,
+async function loadScriptOnce(src: string) {
+  const existing = document.querySelector<HTMLScriptElement>(`script[src="${src}"]`);
+  if (existing) {
+    await new Promise<void>((resolve, reject) => {
+      if (existing.dataset.ready) resolve();
+      existing.addEventListener('load', () => resolve());
+      existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)));
+    });
+    return;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.dataset.ready = 'false';
+    script.onload = () => {
+      script.dataset.ready = 'true';
+      resolve();
+    };
+    script.onerror = () => reject(new Error(`Failed to load ${src}`));
+    document.head.appendChild(script);
+  });
+}
+
+async function ensurePdfDeps() {
+  const pdfWindow = window as typeof window & {
+    html2canvas?: (element: HTMLElement, options?: Record<string, unknown>) => Promise<HTMLCanvasElement>;
+    jspdf?: { jsPDF: typeof import('jspdf').jsPDF };
+  };
+
+  if (typeof pdfWindow.html2canvas === 'function' && pdfWindow.jspdf?.jsPDF) {
+    return;
+  }
+
+  await Promise.all([
+    loadScriptOnce(HTML2CANVAS_URL),
+    loadScriptOnce(JSPDF_URL),
   ]);
 
-  const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+  if (!pdfWindow.html2canvas || !pdfWindow.jspdf?.jsPDF) {
+    throw new Error('PDF deps failed to load');
+  }
+}
+
+export async function downloadElementAsPdf(element: HTMLElement, filename = 'flight-brief.pdf') {
+  const pdfWindow = window as typeof window & {
+    html2canvas?: (element: HTMLElement, options?: Record<string, unknown>) => Promise<HTMLCanvasElement>;
+    jspdf?: { jsPDF: typeof import('jspdf').jsPDF };
+  };
+
+  await ensurePdfDeps();
+
+  const canvas = await pdfWindow.html2canvas!(element, { scale: 2, useCORS: true });
   const imgData = canvas.toDataURL('image/png');
 
-  const pdf = new jsPDF('p', 'pt', 'a4');
+  const pdf = new pdfWindow.jspdf!.jsPDF('p', 'pt', 'a4');
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
 
