@@ -10,7 +10,11 @@ export function BasicsStep() {
 
   const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = event.target;
-    updateBasics({ [name]: value });
+    const sanitized =
+      name === 'departure' || name === 'destination'
+        ? value.toUpperCase()
+        : value;
+    updateBasics({ [name]: sanitized });
   };
 
   return (
@@ -34,6 +38,7 @@ export function BasicsStep() {
             <option value="training">Training</option>
             <option value="checkride">Checkride Prep</option>
             <option value="xc">Cross-country</option>
+            <option value="proficiency">Proficiency</option>
           </select>
         </div>
       </div>
@@ -69,13 +74,28 @@ export function BasicsStep() {
 
       <div className="wizard-grid">
         <div className="wizard-field">
+          <label htmlFor="departureTime">Departure time</label>
+          <input
+            id="departureTime"
+            name="departureTime"
+            type="datetime-local"
+            value={basics.departureTime ?? ''}
+            onChange={handleChange}
+          />
+          <p className="wizard-helper">UTC or local — be consistent with your weather brief</p>
+        </div>
+        <div className="wizard-field">
           <label htmlFor="etd">ETD</label>
           <input id="etd" name="etd" value={basics.etd ?? ''} onChange={handleChange} placeholder="2024-12-01T14:00" />
+          <p className="wizard-helper">Keep a plain-text ETD for quick export</p>
         </div>
         <div className="wizard-field">
           <label htmlFor="eta">ETA</label>
           <input id="eta" name="eta" value={basics.eta ?? ''} onChange={handleChange} placeholder="2024-12-01T16:00" />
         </div>
+      </div>
+
+      <div className="wizard-grid">
         <div className="wizard-field">
           <label htmlFor="aircraftIdent">Aircraft</label>
           <input
@@ -85,13 +105,29 @@ export function BasicsStep() {
             onChange={handleChange}
             placeholder="N12345"
           />
+          <p className="wizard-helper">Syncs with aircraft selection, if loaded</p>
         </div>
-      </div>
-
-      <div className="wizard-field">
-        <label htmlFor="notes">Brief notes</label>
-        <textarea id="notes" name="notes" value={basics.lessonType ?? ''} onChange={() => {}} placeholder="Optional notes" disabled />
-        <p className="wizard-helper">Lesson notes currently sync from session metadata.</p>
+        <div className="wizard-field">
+          <label htmlFor="fuelPolicy">Fuel policy</label>
+          <select id="fuelPolicy" name="fuelPolicy" value={basics.fuelPolicy ?? ''} onChange={handleChange}>
+            <option value="">Select</option>
+            <option value="full">Full fuel</option>
+            <option value="tabs">Tabs / partial fuel</option>
+            <option value="min-fuel">Minimum legal + reserve</option>
+            <option value="custom">Custom / instructor brief</option>
+          </select>
+          <p className="wizard-helper">Document how you plan to launch</p>
+        </div>
+        <div className="wizard-field">
+          <label htmlFor="notes">Notes</label>
+          <textarea
+            id="notes"
+            name="notes"
+            value={basics.notes ?? ''}
+            onChange={handleChange}
+            placeholder="Fuel receipt? Pattern direction? Passenger needs?"
+          />
+        </div>
       </div>
 
       <div className="wizard-summary-card">
