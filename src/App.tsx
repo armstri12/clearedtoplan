@@ -5,6 +5,8 @@ import WeightBalancePage from './features/weightBalance/WeightBalancePage';
 import NavlogPage from './features/navlog/NavlogPage';
 import PerformancePage from './features/performance/PerformancePage';
 import WeatherPage from './features/weather/WeatherPage';
+import { WorkflowProgress } from './components/WorkflowProgress';
+import { WorkflowGuard } from './components/WorkflowGuard';
 
 // Consistent color scheme
 const COLORS = {
@@ -121,6 +123,9 @@ function Layout({ children }: { children: React.ReactNode }) {
         </header>
       )}
 
+      {/* Workflow Progress */}
+      {!isHomePage && <WorkflowProgress />}
+
       {/* Main Content */}
       {isHomePage ? (
         children
@@ -173,11 +178,46 @@ export default function App() {
     <Layout>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/aircraft" element={<AircraftPage />} />
-        <Route path="/wb" element={<WeightBalancePage />} />
-        <Route path="/performance" element={<PerformancePage />} />
-        <Route path="/weather" element={<WeatherPage />} />
-        <Route path="/navlog" element={<NavlogPage />} />
+        <Route
+          path="/aircraft"
+          element={
+            <WorkflowGuard step="aircraft">
+              <AircraftPage />
+            </WorkflowGuard>
+          }
+        />
+        <Route
+          path="/wb"
+          element={
+            <WorkflowGuard step="weightBalance">
+              <WeightBalancePage />
+            </WorkflowGuard>
+          }
+        />
+        <Route
+          path="/performance"
+          element={
+            <WorkflowGuard step="performance">
+              <PerformancePage />
+            </WorkflowGuard>
+          }
+        />
+        <Route
+          path="/weather"
+          element={
+            <WorkflowGuard step="weather">
+              <WeatherPage />
+            </WorkflowGuard>
+          }
+        />
+        <Route
+          path="/navlog"
+          element={
+            <WorkflowGuard step="navlog">
+              <NavlogPage />
+            </WorkflowGuard>
+          }
+        />
       </Routes>
     </Layout>
   );
