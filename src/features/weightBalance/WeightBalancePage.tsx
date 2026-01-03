@@ -431,6 +431,9 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
 
   const [activeCategory, setActiveCategory] = useState<'normal' | 'utility'>('normal');
 
+  // Night flight toggle for fuel reserve calculations
+  const [isNightFlight, setIsNightFlight] = useState<boolean>(false);
+
   // Scenario management
   const [scenarios, setScenarios] = useState<WBScenario[]>([]);
   const [scenarioName, setScenarioName] = useState<string>('');
@@ -699,10 +702,10 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
       warnings.push(`Fuel exceeds station max (${round(fuelRampLb)} > ${fuelMax} lb).`);
     }
 
-    // VFR fuel reserve check (assumes day flight; could add night toggle)
+    // VFR fuel reserve check with day/night flight support
     // Estimate GPH from total burn across flight (simplified - real flight plans would have more detail)
     const estimatedGph = burn / 1.5 || 8.0; // Rough estimate: assume 1.5 hr flight or default 8 GPH
-    const fuelReserveCheck = checkFuelReserve(landingGal, estimatedGph);
+    const fuelReserveCheck = checkFuelReserve(landingGal, estimatedGph, isNightFlight);
 
     return {
       density,
@@ -750,6 +753,7 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
     stRear,
     stFuel,
     activeCategory,
+    isNightFlight,
   ]);
 
   if (!profile) {
@@ -1148,6 +1152,24 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
             readOnly
             style={{ width: '100%', padding: 8, borderRadius: 8, background: '#f7f7f7' }}
           />
+        </div>
+      </div>
+
+      {/* Night Flight Toggle */}
+      <div style={{ marginTop: 16 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={isNightFlight}
+            onChange={(e) => setIsNightFlight(e.target.checked)}
+            style={{ cursor: 'pointer', width: 18, height: 18 }}
+          />
+          <span style={{ fontSize: 14, fontWeight: 600 }}>
+            Night Flight (VFR fuel reserve: {isNightFlight ? '45' : '30'} minutes)
+          </span>
+        </label>
+        <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4, marginLeft: 26 }}>
+          FAR 91.151: VFR requires {isNightFlight ? '45 minutes at night' : '30 minutes during day'}
         </div>
       </div>
       </div> {/* end .no-print */}
