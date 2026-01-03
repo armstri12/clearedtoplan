@@ -1,22 +1,53 @@
 import { useState } from 'react';
 import { getMetar, getTaf, getNearestTaf, parseIcaoCode, type MetarData, type TafData } from '../../services/aviationApi';
 
-// Helper to format TAF times in Zulu
-function formatTafTime(isoString: string): string {
-  if (!isoString) return 'N/A';
-  try {
-    const date = new Date(isoString);
-    if (isNaN(date.getTime())) return 'N/A';
+// Helper to parse TAF into groups from raw text
+function parseTafGroups(rawTaf: string): Array<{
+  period: string;
+  text: string;
+}> {
+  if (!rawTaf) return [];
 
-    // Format as "DD HH:mm" in UTC
-    const day = date.getUTCDate().toString().padStart(2, '0');
-    const hours = date.getUTCHours().toString().padStart(2, '0');
-    const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+  // Split on change groups: FM, BECMG, TEMPO, PROB
+  const changeGroupRegex = /\b(FM\d{6}|BECMG\s+\d{4}\/\d{4}|TEMPO\s+\d{4}\/\d{4}|PROB\d{2}\s+(?:TEMPO\s+)?\d{4}\/\d{4})/g;
 
-    return `${day}/${hours}${minutes}Z`;
-  } catch {
-    return 'N/A';
+  const parts = rawTaf.split(changeGroupRegex).filter(p => p && p.trim());
+
+  if (parts.length === 0) return [];
+
+  const groups: Array<{ period: string; text: string }> = [];
+
+  // First group is the initial forecast (after the header)
+  // Find where forecast actually starts (after valid time)
+  const validTimeMatch = rawTaf.match(/\d{6}Z\s+(\d{4}\/\d{4})/);
+  if (validTimeMatch) {
+    const validPeriod = validTimeMatch[1];
+    const afterHeader = rawTaf.substring(rawTaf.indexOf(validPeriod) + validPeriod.length);
+    const firstChangeIndex = afterHeader.search(changeGroupRegex);
+
+    if (firstChangeIndex > 0) {
+      groups.push({
+        period: validPeriod,
+        text: afterHeader.substring(0, firstChangeIndex).trim()
+      });
+    } else if (firstChangeIndex < 0) {
+      groups.push({
+        period: validPeriod,
+        text: afterHeader.trim()
+      });
+    }
   }
+
+  // Parse change groups
+  for (let i = 0; i < parts.length - 1; i += 2) {
+    const period = parts[i];
+    const text = parts[i + 1];
+    if (period && text) {
+      groups.push({ period: period.trim(), text: text.trim() });
+    }
+  }
+
+  return groups;
 }
 
 type AirportWeather = {
@@ -449,45 +480,54 @@ export default function WeatherPage() {
                     </div>
                   )}
 
-                  {/* Forecast Periods */}
-                  {selected.taf.forecast && selected.taf.forecast.length > 0 && (
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.7, marginBottom: 12 }}>
-                        FORECAST PERIODS
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 12 }}>
-                        {selected.taf.forecast.map((period, i) => (
-                          <div
-                            key={i}
-                            style={{
-                              padding: 12,
-                              borderRadius: 8,
-                              border: '2px solid #e5e7eb',
-                              background: '#fafafa',
-                            }}
-                          >
-                            <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8 }}>
-                              {formatTafTime(period.timestamp.from)}
-                              {' → '}
-                              {formatTafTime(period.timestamp.to)}
+                  {/* Forecast Groups */}
+                  {selected.taf.raw_text && (() => {
+                    const groups = parseTafGroups(selected.taf.raw_text);
+                    if (groups.length === 0) return null;
+
+                    return (
+                      <div style={{ marginBottom: 16 }}>
+                        <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.7, marginBottom: 12 }}>
+                          FORECAST GROUPS
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                          {groups.map((group, i) => (
+                            <div
+                              key={i}
+                              style={{
+                                padding: 12,
+                                borderRadius: 8,
+                                border: '2px solid #dbeafe',
+                                background: '#f0f9ff',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  fontSize: 12,
+                                  fontWeight: 900,
+                                  color: '#1e40af',
+                                  marginBottom: 6,
+                                  fontFamily: 'monospace',
+                                }}
+                              >
+                                {group.period}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: 13,
+                                  fontFamily: 'monospace',
+                                  lineHeight: 1.6,
+                                  color: '#1f2937',
+                                }}
+                              >
+                                {group.text}
+                              </div>
                             </div>
-
-                            {period.wind && (
-                              <div style={{ fontSize: 12, marginBottom: 4 }}>
-                                💨 {period.wind.degrees.toString().padStart(3, '0')}° @ {period.wind.speed_kts} kts
-                              </div>
-                            )}
-
-                            {period.visibility && (
-                              <div style={{ fontSize: 12, marginBottom: 4 }}>
-                                👁️ {period.visibility.miles} SM
-                              </div>
-                            )}
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Raw TAF */}
                   <div
