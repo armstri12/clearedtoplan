@@ -201,6 +201,11 @@ function RunwayDiagram({
     <div style={{ padding: 14, borderRadius: 12, background: '#e8f7f1', border: '1px solid #8be0bb', marginBottom: 12 }}>
       <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.8, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: '50%', background: '#14b8a6', color: '#fff', fontWeight: 900 }}>
+
+  return (
+    <div style={{ padding: 14, borderRadius: 12, background: '#ecfdf3', border: '1px solid #86efac', marginBottom: 12 }}>
+      <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.8, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: '50%', background: '#22c55e', color: '#fff', fontWeight: 900 }}>
           🛬
         </span>
         <span>Runway configuration for {icao} — wind {windDir.toString().padStart(3, '0')}° at {windSpeed} kt</span>
@@ -230,6 +235,7 @@ function RunwayDiagram({
             {highlighted && highlighted.headwind !== undefined && highlighted.crosswind !== undefined && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
                 <div style={{ padding: '10px 12px', borderRadius: 10, background: '#0d9488', color: '#ecfeff', fontWeight: 900, boxShadow: '0 8px 18px rgba(13,148,136,0.28)' }}>
+                <div style={{ padding: '10px 12px', borderRadius: 10, background: '#16a34a', color: '#f8fafc', fontWeight: 900, boxShadow: '0 8px 18px rgba(22,163,74,0.25)' }}>
                   <div style={{ fontSize: 11, opacity: 0.9, letterSpacing: 0.2 }}>BEST</div>
                   <div style={{ fontSize: 18 }}>
                     {highlighted.bestEnd === 'le'
@@ -243,11 +249,13 @@ function RunwayDiagram({
                   </div>
                 </div>
                 <div style={{ padding: '10px 12px', borderRadius: 10, background: '#eef2ff', color: '#1e1b4b', fontWeight: 800, border: '1px solid #dfe3ff' }}>
+                <div style={{ padding: '10px 12px', borderRadius: 10, background: '#eef2ff', color: '#312e81', fontWeight: 800, border: '1px solid #e0e7ff' }}>
                   <div style={{ fontSize: 11, opacity: 0.8, letterSpacing: 0.2 }}>HEADWIND</div>
                   <div style={{ fontSize: 18 }}>{highlighted.headwind} kt</div>
                   <div style={{ fontSize: 12, opacity: 0.8 }}>from {windDir.toString().padStart(3, '0')}°</div>
                 </div>
                 <div style={{ padding: '10px 12px', borderRadius: 10, background: '#e0f2fe', color: '#0f172a', fontWeight: 800, border: '1px solid #b6e0fe' }}>
+                <div style={{ padding: '10px 12px', borderRadius: 10, background: '#e0f2fe', color: '#0f172a', fontWeight: 800, border: '1px solid #bae6fd' }}>
                   <div style={{ fontSize: 11, opacity: 0.8, letterSpacing: 0.2 }}>CROSSWIND</div>
                   <div style={{ fontSize: 18 }}>{Math.abs(highlighted.crosswind)} kt</div>
                   <div style={{ fontSize: 12, opacity: 0.8 }}>{highlighted.crosswind >= 0 ? 'from right' : 'from left'}</div>
@@ -262,6 +270,7 @@ function RunwayDiagram({
                     <div style={{ fontWeight: 800 }}>{runway.id}</div>
                     {runway.bestEnd && runway.id === highlighted?.id && (
                       <span style={{ fontSize: 10, fontWeight: 800, padding: '4px 8px', borderRadius: 999, background: '#d1fae5', color: '#065f46' }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, padding: '4px 8px', borderRadius: 999, background: '#dcfce7', color: '#166534' }}>
                         Favored
                       </span>
                     )}
@@ -276,6 +285,7 @@ function RunwayDiagram({
                   {runway.headwind !== undefined && runway.crosswind !== undefined && (
                     <div style={{ fontSize: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <span style={{ fontWeight: 700, color: '#0f766e' }}>{runway.headwind} kt headwind</span>
+                      <span style={{ fontWeight: 700, color: '#166534' }}>{runway.headwind} kt headwind</span>
                       <span style={{ fontWeight: 700, color: '#0f172a' }}>{Math.abs(runway.crosswind)} kt crosswind</span>
                     </div>
                   )}
@@ -309,6 +319,11 @@ function RunwayDiagram({
                   fill="#0284c7"
                 />
                 <circle cx={arrowTail.x} cy={arrowTail.y} r={5} fill="#0ea5e9" />
+              {/* Wind arrow (coming from) */}
+              <g transform={`translate(${center}, ${center}) rotate(${windDir - 90})`}>
+                <line x1={0} y1={-radius} x2={0} y2={radius * 0.18} stroke="#16a34a" strokeWidth={5} strokeLinecap="round" />
+                <polygon points={`0,${-radius - 8} 9,${-radius + 10} -9,${-radius + 10}`} fill="#16a34a" />
+                <circle cx={0} cy={0} r={5} fill="#16a34a" />
               </g>
 
               {visuals.map(runway => {
