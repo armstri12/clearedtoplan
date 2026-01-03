@@ -19,12 +19,25 @@ export default function HomePage() {
   const { currentSession, savedSessions, startNewSession, loadSession, deleteSession } = useFlightSession();
   const [showNewSessionModal, setShowNewSessionModal] = useState(false);
   const [newSessionName, setNewSessionName] = useState('');
+  const [newRoute, setNewRoute] = useState('');
+  const [newEtd, setNewEtd] = useState('');
+  const [newEta, setNewEta] = useState('');
+  const [newLessonType, setNewLessonType] = useState('');
 
   function handleStartNewSession() {
     if (!newSessionName.trim()) return;
-    startNewSession(newSessionName);
+    startNewSession(newSessionName, {
+      route: newRoute || undefined,
+      etd: newEtd || undefined,
+      eta: newEta || undefined,
+      lessonType: newLessonType || undefined,
+    });
     setShowNewSessionModal(false);
     setNewSessionName('');
+    setNewRoute('');
+    setNewEtd('');
+    setNewEta('');
+    setNewLessonType('');
     navigate('/aircraft');
   }
 
@@ -564,6 +577,82 @@ export default function HomePage() {
                 boxSizing: 'border-box',
               }}
             />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: COLORS.textLight, marginBottom: 6 }}>
+                  Route
+                </label>
+                <input
+                  type="text"
+                  value={newRoute}
+                  onChange={(e) => setNewRoute(e.target.value)}
+                  placeholder="e.g., KDPA → KOSH"
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    fontSize: 14,
+                    borderRadius: 8,
+                    border: '2px solid #e2e8f0',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: COLORS.textLight, marginBottom: 6 }}>
+                  ETD (Local)
+                </label>
+                <input
+                  type="time"
+                  value={newEtd}
+                  onChange={(e) => setNewEtd(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    fontSize: 14,
+                    borderRadius: 8,
+                    border: '2px solid #e2e8f0',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: COLORS.textLight, marginBottom: 6 }}>
+                  ETA (Local)
+                </label>
+                <input
+                  type="time"
+                  value={newEta}
+                  onChange={(e) => setNewEta(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    fontSize: 14,
+                    borderRadius: 8,
+                    border: '2px solid #e2e8f0',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: COLORS.textLight, marginBottom: 6 }}>
+                  Lesson Type
+                </label>
+                <input
+                  type="text"
+                  value={newLessonType}
+                  onChange={(e) => setNewLessonType(e.target.value)}
+                  placeholder="e.g., Dual XC, Solo practice"
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    fontSize: 14,
+                    borderRadius: 8,
+                    border: '2px solid #e2e8f0',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+            </div>
             <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
               <button
                 onClick={() => setShowNewSessionModal(false)}

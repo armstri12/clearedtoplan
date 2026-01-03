@@ -42,7 +42,7 @@
  *
  * @module FlightSessionContext
  */
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from 'react';
 
 // ===== TYPES =====
 
@@ -165,7 +165,21 @@ export type FlightSessionWeather = {
 export type FlightSessionNavlog = {
   route: string;
   departureTime: string;
+  arrivalTime?: string;
+  departure?: string;
+  destination?: string;
+  ete?: string;
   legs: any[];  // Will use existing Leg type
+};
+
+export type FlightSessionMetadata = {
+  route?: string;
+  departure?: string;
+  destination?: string;
+  etd?: string;
+  eta?: string;
+  lessonType?: string;
+  alternates?: string[];
 };
 
 /**
@@ -213,6 +227,9 @@ export type FlightSession = {
   performance?: FlightSessionPerformance;
   weather?: FlightSessionWeather;
   navlog?: FlightSessionNavlog;
+
+  /** Cross-step summary data for header display */
+  metadata: FlightSessionMetadata;
 };
 
 // ===== CONTEXT =====
@@ -226,7 +243,7 @@ type FlightSessionContextType = {
   savedSessions: FlightSession[];
 
   // Session management
-  startNewSession: (name: string) => void;
+  startNewSession: (name: string, metadata?: Partial<FlightSessionMetadata>) => void;
   loadSession: (id: string) => void;
   saveSession: () => void;
   deleteSession: (id: string) => void;
@@ -238,6 +255,7 @@ type FlightSessionContextType = {
   updatePerformance: (data: FlightSessionPerformance) => void;
   updateWeather: (data: FlightSessionWeather) => void;
   updateNavlog: (data: FlightSessionNavlog) => void;
+  updateMetadata: (data: Partial<FlightSessionMetadata>) => void;
 
   // Mark steps complete
   completeStep: (step: keyof FlightSession['completed']) => void;
@@ -254,11 +272,23 @@ const FlightSessionContext = createContext<FlightSessionContextType | undefined>
 const STORAGE_KEY = 'clearedtoplan_sessions';
 const CURRENT_SESSION_KEY = 'clearedtoplan_current_session';
 
+function withMetadataDefaults(session: FlightSession): FlightSession {
+  const alternates = session.metadata?.alternates ?? [];
+  return {
+    ...session,
+    metadata: {
+      ...(session.metadata ?? {}),
+      alternates,
+    },
+  };
+}
+
 function makeId() {
   return `session_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
-function createEmptySession(name: string): FlightSession {
+function createEmptySession(name: string, metadata?: Partial<FlightSessionMetadata>): FlightSession {
+  const alternates = metadata?.alternates ?? [];
   return {
     id: makeId(),
     name,
@@ -270,6 +300,10 @@ function createEmptySession(name: string): FlightSession {
       performance: false,
       weather: false,
       navlog: false,
+    },
+    metadata: {
+      ...(metadata ?? {}),
+      alternates,
     },
   };
 }
@@ -284,13 +318,13 @@ export function FlightSessionProvider({ children }: { children: ReactNode }) {
       const savedStr = localStorage.getItem(STORAGE_KEY);
       if (savedStr) {
         const sessions = JSON.parse(savedStr);
-        setSavedSessions(sessions);
+        setSavedSessions(Array.isArray(sessions) ? sessions.map(withMetadataDefaults) : []);
       }
 
       const currentStr = localStorage.getItem(CURRENT_SESSION_KEY);
       if (currentStr) {
         const session = JSON.parse(currentStr);
-        setCurrentSession(session);
+        setCurrentSession(withMetadataDefaults(session));
       }
     } catch (error) {
       console.error('Error loading sessions:', error);
@@ -312,15 +346,15 @@ export function FlightSessionProvider({ children }: { children: ReactNode }) {
     }
   }, [currentSession]);
 
-  const startNewSession = (name: string) => {
-    const session = createEmptySession(name);
+  const startNewSession = (name: string, metadata?: Partial<FlightSessionMetadata>) => {
+    const session = createEmptySession(name, metadata);
     setCurrentSession(session);
   };
 
   const loadSession = (id: string) => {
     const session = savedSessions.find((s) => s.id === id);
     if (session) {
-      setCurrentSession({ ...session });
+      setCurrentSession(withMetadataDefaults({ ...session }));
     }
   };
 
@@ -401,6 +435,29 @@ export function FlightSessionProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const updateMetadata = useCallback(
+    (data: Partial<FlightSessionMetadata>) => {
+      if (!currentSession) return;
+
+      const nextMetadata = {
+        ...currentSession.metadata,
+        ...data,
+        alternates: data.alternates ?? currentSession.metadata.alternates,
+      };
+
+      if (JSON.stringify(nextMetadata) === JSON.stringify(currentSession.metadata)) {
+        return;
+      }
+
+      setCurrentSession({
+        ...currentSession,
+        metadata: nextMetadata,
+        updatedAt: new Date().toISOString(),
+      });
+    },
+    [currentSession],
+  );
+
   const completeStep = (step: keyof FlightSession['completed']) => {
     if (!currentSession) return;
     setCurrentSession({
@@ -472,6 +529,7 @@ export function FlightSessionProvider({ children }: { children: ReactNode }) {
         updatePerformance,
         updateWeather,
         updateNavlog,
+        updateMetadata,
         completeStep,
         canAccessStep,
         getNextStep,

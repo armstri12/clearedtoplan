@@ -8,6 +8,7 @@ import PerformancePage from './features/performance/PerformancePage';
 import WeatherPage from './features/weather/WeatherPage';
 import { WorkflowProgress } from './components/WorkflowProgress';
 import { WorkflowGuard } from './components/WorkflowGuard';
+import { TripHeader } from './components/TripHeader';
 import { useAuth } from './context/AuthContext';
 
 // Consistent color scheme
@@ -295,7 +296,12 @@ function Layout({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Workflow Progress */}
-      {!isHomePage && <WorkflowProgress />}
+      {!isHomePage && (
+        <>
+          <WorkflowProgress />
+          <TripHeader />
+        </>
+      )}
 
       {/* Main Content */}
       {isHomePage ? (
@@ -393,4 +399,3 @@ export default function App() {
     </Layout>
   );
 }
-
