@@ -1,4 +1,6 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { useFlightSession } from '../../context/FlightSessionContext';
 
 const COLORS = {
   primary: '#2563eb', // blue-600
@@ -11,6 +13,24 @@ const COLORS = {
 };
 
 export default function HomePage() {
+  const navigate = useNavigate();
+  const { currentSession, savedSessions, startNewSession, loadSession, deleteSession } = useFlightSession();
+  const [showNewSessionModal, setShowNewSessionModal] = useState(false);
+  const [newSessionName, setNewSessionName] = useState('');
+
+  function handleStartNewSession() {
+    if (!newSessionName.trim()) return;
+    startNewSession(newSessionName);
+    setShowNewSessionModal(false);
+    setNewSessionName('');
+    navigate('/aircraft');
+  }
+
+  function handleLoadSession(id: string) {
+    loadSession(id);
+    navigate('/aircraft');
+  }
+
   return (
     <div style={{ background: COLORS.background, minHeight: '100vh' }}>
       {/* Hero Section */}
@@ -30,8 +50,8 @@ export default function HomePage() {
             Flight planning tools built by a student pilot, for pilots
           </div>
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link
-              to="/aircraft"
+            <button
+              onClick={() => setShowNewSessionModal(true)}
               style={{
                 padding: '16px 32px',
                 background: '#fff',
@@ -39,8 +59,8 @@ export default function HomePage() {
                 borderRadius: 12,
                 fontWeight: 700,
                 fontSize: 18,
-                textDecoration: 'none',
-                display: 'inline-block',
+                border: 'none',
+                cursor: 'pointer',
                 transition: 'transform 0.2s, box-shadow 0.2s',
               }}
               onMouseEnter={(e) => {
@@ -53,7 +73,7 @@ export default function HomePage() {
               }}
             >
               Start Flight Planning →
-            </Link>
+            </button>
             <a
               href="https://donate.stripe.com/test_00000000" // Replace with actual donate link
               target="_blank"
@@ -84,6 +104,133 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      {/* Current Session / Saved Sessions */}
+      {(currentSession || savedSessions.length > 0) && (
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px 0' }}>
+          {currentSession && (
+            <div
+              style={{
+                background: '#fff',
+                borderRadius: 16,
+                padding: 24,
+                marginBottom: 24,
+                border: `2px solid ${COLORS.primary}`,
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: COLORS.text }}>
+                    Current Flight Plan: {currentSession.name}
+                  </h3>
+                  <div style={{ fontSize: 14, color: COLORS.textLight, marginTop: 4 }}>
+                    Last updated: {new Date(currentSession.updatedAt).toLocaleString()}
+                  </div>
+                </div>
+                <button
+                  onClick={() => navigate('/aircraft')}
+                  style={{
+                    padding: '10px 20px',
+                    background: COLORS.primary,
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 8,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Continue →
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: 12, fontSize: 14 }}>
+                {Object.entries(currentSession.completed).map(([step, completed]) => (
+                  <div
+                    key={step}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 6,
+                      background: completed ? '#d1fae5' : '#f3f4f6',
+                      color: completed ? '#065f46' : COLORS.textLight,
+                      fontWeight: completed ? 700 : 500,
+                    }}
+                  >
+                    {completed ? '✓' : '○'} {step}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {savedSessions.length > 0 && (
+            <div>
+              <h3 style={{ fontSize: 24, fontWeight: 800, color: COLORS.text, marginBottom: 16 }}>
+                Saved Flight Plans
+              </h3>
+              <div style={{ display: 'grid', gap: 12 }}>
+                {savedSessions.map((session) => (
+                  <div
+                    key={session.id}
+                    style={{
+                      background: '#fff',
+                      borderRadius: 12,
+                      padding: 16,
+                      border: '1px solid #e2e8f0',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 16, color: COLORS.text }}>
+                        {session.name}
+                      </div>
+                      <div style={{ fontSize: 13, color: COLORS.textLight, marginTop: 2 }}>
+                        Updated: {new Date(session.updatedAt).toLocaleString()}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button
+                        onClick={() => handleLoadSession(session.id)}
+                        style={{
+                          padding: '8px 16px',
+                          background: COLORS.primary,
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: 6,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          fontSize: 14,
+                        }}
+                      >
+                        Load
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Delete flight plan "${session.name}"?`)) {
+                            deleteSession(session.id);
+                          }
+                        }}
+                        style={{
+                          padding: '8px 16px',
+                          background: '#ef4444',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: 6,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          fontSize: 14,
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Flight Planning Workflow */}
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '60px 24px' }}>
@@ -405,6 +552,94 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      {/* New Session Modal */}
+      {showNewSessionModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setShowNewSessionModal(false)}
+        >
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: 16,
+              padding: 32,
+              maxWidth: 500,
+              width: '90%',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ margin: 0, marginBottom: 8, fontSize: 24, fontWeight: 900, color: COLORS.text }}>
+              Start New Flight Plan
+            </h2>
+            <p style={{ margin: 0, marginBottom: 24, fontSize: 14, color: COLORS.textLight }}>
+              Give your flight plan a name (e.g., "KDPA to KOSH", "Weekend Trip to KOSH")
+            </p>
+            <input
+              type="text"
+              value={newSessionName}
+              onChange={(e) => setNewSessionName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleStartNewSession();
+                if (e.key === 'Escape') setShowNewSessionModal(false);
+              }}
+              placeholder="Enter flight plan name..."
+              autoFocus
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                fontSize: 16,
+                borderRadius: 8,
+                border: '2px solid #e2e8f0',
+                marginBottom: 24,
+                boxSizing: 'border-box',
+              }}
+            />
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowNewSessionModal(false)}
+                style={{
+                  padding: '10px 20px',
+                  background: '#f3f4f6',
+                  color: COLORS.text,
+                  border: 'none',
+                  borderRadius: 8,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleStartNewSession}
+                disabled={!newSessionName.trim()}
+                style={{
+                  padding: '10px 20px',
+                  background: newSessionName.trim() ? COLORS.primary : '#d1d5db',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  fontWeight: 600,
+                  cursor: newSessionName.trim() ? 'pointer' : 'not-allowed',
+                }}
+              >
+                Start Planning →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
