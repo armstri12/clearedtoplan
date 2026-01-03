@@ -12,7 +12,7 @@ const COLORS = {
   textLight: '#64748b', // slate-500
 };
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 
 export default function HomePage() {
   const navigate = useNavigate();

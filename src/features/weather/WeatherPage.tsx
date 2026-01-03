@@ -370,6 +370,65 @@ export default function WeatherPage() {
                     )}
                   </div>
 
+                  {/* Runway Favored Based on Wind */}
+                  {selected.metar.wind && (() => {
+                    const windDir = selected.metar.wind.degrees;
+                    const windSpeed = selected.metar.wind.speed_kts;
+
+                    // Calculate favored runway (opposite of wind direction for headwind)
+                    // Round to nearest 10 degrees for runway designation
+                    const favoredRunway = Math.round(((windDir + 180) % 360) / 10);
+                    const oppositeRunway = Math.round(windDir / 10);
+
+                    return (
+                      <div style={{ padding: 12, borderRadius: 8, background: '#f0fdf4', border: '1px solid #86efac', marginBottom: 12 }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, opacity: 0.7, marginBottom: 8 }}>
+                          🛬 FAVORED RUNWAY (Based on {windSpeed} kt wind from {windDir.toString().padStart(3, '0')}°)
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                          {/* SVG Runway Diagram */}
+                          <svg width="200" height="80" viewBox="0 0 200 80" style={{ background: '#fff', borderRadius: 8, border: '1px solid #d1d5db' }}>
+                            {/* Runway */}
+                            <rect x="20" y="30" width="160" height="20" fill="#4b5563" stroke="#374151" strokeWidth="2" />
+
+                            {/* Center line */}
+                            <line x1="20" y1="40" x2="180" y2="40" stroke="#fff" strokeWidth="1" strokeDasharray="5,5" />
+
+                            {/* Runway numbers */}
+                            <text x="35" y="45" fill="#fff" fontSize="12" fontWeight="bold" textAnchor="middle">
+                              {oppositeRunway.toString().padStart(2, '0')}
+                            </text>
+                            <text x="165" y="45" fill="#fff" fontSize="12" fontWeight="bold" textAnchor="middle">
+                              {favoredRunway.toString().padStart(2, '0')}
+                            </text>
+
+                            {/* Wind Arrow pointing to favored end */}
+                            <g transform={`translate(100, 15)`}>
+                              <path d="M 0,-5 L 5,0 L 0,5 L 0,2 L -30,2 L -30,-2 L 0,-2 Z"
+                                    fill="#22c55e"
+                                    transform={`rotate(${(windDir + 180) % 360 - 90})`} />
+                            </g>
+
+                            {/* Green highlight on favored end */}
+                            <rect x="155" y="28" width="27" height="24" fill="#22c55e" opacity="0.3" rx="4" />
+                          </svg>
+
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 16, fontWeight: 800, color: '#166534', marginBottom: 4 }}>
+                              Runway {favoredRunway.toString().padStart(2, '0')}
+                            </div>
+                            <div style={{ fontSize: 12, color: '#64748b' }}>
+                              Headwind component: ~{windSpeed} kts
+                            </div>
+                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 4, fontStyle: 'italic' }}>
+                              Wind from {windDir}° favors Runway {favoredRunway.toString().padStart(2, '0')} for landing
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {/* Clouds */}
                   {selected.metar.clouds && selected.metar.clouds.length > 0 && (
                     <div style={{ padding: 12, borderRadius: 8, background: '#f3f4f6', border: '1px solid #d1d5db', marginBottom: 12 }}>
@@ -552,7 +611,8 @@ export default function WeatherPage() {
                           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                             <thead>
                               <tr style={{ background: '#f3f4f6' }}>
-                                <th style={{ padding: '8px 10px', textAlign: 'left', border: '1px solid #ddd', fontWeight: 800, minWidth: 100 }}>Time</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'left', border: '1px solid #ddd', fontWeight: 800, minWidth: 80 }}>Zulu</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'left', border: '1px solid #ddd', fontWeight: 800, minWidth: 80 }}>Local</th>
                                 <th style={{ padding: '8px 10px', textAlign: 'center', border: '1px solid #ddd', fontWeight: 800, minWidth: 80 }}>Wind</th>
                                 <th style={{ padding: '8px 10px', textAlign: 'center', border: '1px solid #ddd', fontWeight: 800, minWidth: 60 }}>Vis</th>
                                 <th style={{ padding: '8px 10px', textAlign: 'left', border: '1px solid #ddd', fontWeight: 800, minWidth: 120 }}>Weather</th>
@@ -627,9 +687,14 @@ export default function WeatherPage() {
 
                                 return (
                                   <tr key={i} style={{ background: bgColor }}>
+                                    {/* Zulu Time */}
                                     <td style={{ padding: '6px 10px', border: '1px solid #ddd', fontFamily: 'monospace', fontSize: 11, fontWeight: isCurrent ? 800 : 600 }}>
-                                      {format(hour, 'EEE dd HH:mm')}z
+                                      {format(new Date(hour.toUTCString()), 'dd HH:mm')}Z
                                       {isCurrent && <span style={{ marginLeft: 6, color: '#2563eb' }}>●</span>}
+                                    </td>
+                                    {/* Local Time */}
+                                    <td style={{ padding: '6px 10px', border: '1px solid #ddd', fontFamily: 'monospace', fontSize: 11, fontWeight: isCurrent ? 800 : 600, color: '#64748b' }}>
+                                      {format(hour, 'dd HH:mm')}
                                     </td>
                                     <td style={{ padding: '6px 10px', border: '1px solid #ddd', fontFamily: 'monospace', fontSize: 11, textAlign: 'center' }}>
                                       {windStr}
