@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { localDb, type StorageError } from '../../lib/storage/localDb';
 import { makeId } from './id';
-import type { AircraftProfile, Station} from './types';
+import type { AircraftProfile, Station } from './types';
 import { assistEnvelope } from '../../lib/math/envelope';
 import { toNumber as toNum, validateWeight } from '../../lib/utils';
 import { useFlightSession } from '../../context/FlightSessionContext';
@@ -55,8 +54,7 @@ function blankProfile(): AircraftProfile {
   
 
 export default function AircraftPage() {
-  const navigate = useNavigate();
-  const { currentSession, updateAircraft, completeStep } = useFlightSession();
+  const { updateAircraft, completeStep } = useFlightSession();
   const [profiles, setProfiles] = useState<AircraftProfile[]>([]);
   const [selectedId, setSelectedId] = useState<string>('');
   const [draft, setDraft] = useState<AircraftProfile>(() => blankProfile());
@@ -245,6 +243,28 @@ export default function AircraftPage() {
     setSelectedId(normalized.id);
     setDraft(normalized);
     setStatus('Saved.');
+
+    // Sync flight session and mark the step complete so the header nav can progress the workflow
+    updateAircraft({
+      profileId: normalized.id,
+      ident: normalized.tailNumber,
+      type: normalized.makeModel,
+      emptyWeight: normalized.emptyWeight.weightLb,
+      emptyMoment: normalized.emptyWeight.momentLbIn,
+      maxRampWeight: normalized.limits.maxRampLb,
+      maxTakeoffWeight: normalized.limits.maxTakeoffLb,
+      maxLandingWeight: normalized.limits.maxLandingLb,
+      fuelCapacityUsable: normalized.fuel.usableGal,
+      fuelDensity: normalized.fuel.densityLbPerGal,
+      performance: {
+        cruisePerformance: normalized.performance?.cruisePerformance || [],
+        takeoffGroundRoll: normalized.performance?.takeoffGroundRoll || 0,
+        takeoffOver50ft: normalized.performance?.takeoffOver50ft || 0,
+        landingGroundRoll: normalized.performance?.landingGroundRoll || 0,
+        landingOver50ft: normalized.performance?.landingOver50ft || 0,
+      },
+    });
+    completeStep('aircraft');
   }
 
   function deleteSelected() {
@@ -307,76 +327,6 @@ export default function AircraftPage() {
       reader.readAsText(file);
     };
     input.click();
-  }
-
-  function continueToWeightBalance() {
-    if (!draft.tailNumber.trim()) {
-      setStatus('Please enter a tail number before continuing.');
-      return;
-    }
-
-    if (!draft.makeModel.trim()) {
-      setStatus('Please enter make/model before continuing.');
-      return;
-    }
-
-    // Auto-save the profile to localStorage first
-    const normalized: AircraftProfile = (() => {
-      const next = { ...draft };
-      const legacy = next.cgEnvelope?.points ?? [];
-      const normalPts = next.cgEnvelopes?.normal?.points ?? [];
-      if (normalPts.length === 0 && legacy.length > 0) {
-        next.cgEnvelopes = {
-          ...(next.cgEnvelopes ?? {}),
-          normal: { points: legacy },
-        };
-      }
-      next.cgEnvelope = undefined;
-      return next;
-    })();
-
-    const exists = profiles.some((p) => p.id === normalized.id);
-    const next = exists
-      ? profiles.map((p) => (p.id === normalized.id ? normalized : p))
-      : [normalized, ...profiles];
-
-    setProfiles(next);
-    const error = saveProfiles(next);
-    if (error) {
-      setStorageError(error);
-      setStatus(`Error saving profile: ${error.message}. Please save manually before continuing.`);
-      return;
-    }
-    setStorageError(null);
-    setSelectedId(normalized.id);
-    setDraft(normalized);
-
-    // Save aircraft data to flight session
-    updateAircraft({
-      profileId: normalized.id,
-      ident: normalized.tailNumber,
-      type: normalized.makeModel,
-      emptyWeight: normalized.emptyWeight.weightLb,
-      emptyMoment: normalized.emptyWeight.momentLbIn,
-      maxRampWeight: normalized.limits.maxRampLb,
-      maxTakeoffWeight: normalized.limits.maxTakeoffLb,
-      maxLandingWeight: normalized.limits.maxLandingLb,
-      fuelCapacityUsable: normalized.fuel.usableGal,
-      fuelDensity: normalized.fuel.densityLbPerGal,
-      performance: {
-        cruisePerformance: normalized.performance?.cruisePerformance || [],
-        takeoffGroundRoll: normalized.performance?.takeoffGroundRoll || 0,
-        takeoffOver50ft: normalized.performance?.takeoffOver50ft || 0,
-        landingGroundRoll: normalized.performance?.landingGroundRoll || 0,
-        landingOver50ft: normalized.performance?.landingOver50ft || 0,
-      },
-    });
-
-    // Mark aircraft step as complete
-    completeStep('aircraft');
-
-    // Navigate to weight & balance
-    navigate('/wb');
   }
 
   return (
@@ -784,50 +734,6 @@ export default function AircraftPage() {
     </div>
   );
 })()}
-
-{/* Continue Button */}
-<div
-  style={{
-    marginTop: 32,
-    paddingTop: 24,
-    borderTop: '2px solid #e2e8f0',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  }}
->
-  <div style={{ fontSize: 14, color: '#64748b' }}>
-    {currentSession && (
-      <div>
-        Flight Plan: <strong>{currentSession.name}</strong>
-      </div>
-    )}
-  </div>
-  <button
-    onClick={continueToWeightBalance}
-    style={{
-      padding: '12px 32px',
-      background: '#2563eb',
-      color: '#fff',
-      border: 'none',
-      borderRadius: 8,
-      fontWeight: 700,
-      fontSize: 16,
-      cursor: 'pointer',
-      transition: 'all 0.2s',
-    }}
-    onMouseEnter={(e) => {
-      e.currentTarget.style.background = '#1e40af';
-      e.currentTarget.style.transform = 'translateY(-1px)';
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.background = '#2563eb';
-      e.currentTarget.style.transform = 'translateY(0)';
-    }}
-  >
-    Continue to Weight & Balance →
-  </button>
-</div>
 
 
         </div>
