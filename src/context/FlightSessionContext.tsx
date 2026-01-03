@@ -33,13 +33,23 @@ export type FlightSessionAircraft = {
 };
 
 export type FlightSessionWB = {
-  loadedWeight: number;       // lbs
-  loadedMoment: number;       // lb-in
-  cgPosition: number;         // inches
-  fuelOnboard: number;        // gallons
-  fuelWeight: number;         // lbs
-  isWithinEnvelope: boolean;
-  isWithinLimits: boolean;
+  // Payload
+  frontSeatsLb: number;
+  rearSeatsLb: number;
+  baggageLb: number;
+
+  // Fuel
+  startFuelGal: number;
+  taxiFuelGal: number;
+  plannedBurnGal: number;
+
+  // Calculated results
+  rampWeight: number;
+  rampCG: number;
+  takeoffWeight: number;
+  takeoffCG: number;
+  landingWeight: number;
+  landingCG: number;
 };
 
 export type FlightSessionPerformance = {

@@ -320,24 +320,55 @@ export default function AircraftPage() {
       return;
     }
 
+    // Auto-save the profile to localStorage first
+    const normalized: AircraftProfile = (() => {
+      const next = { ...draft };
+      const legacy = next.cgEnvelope?.points ?? [];
+      const normalPts = next.cgEnvelopes?.normal?.points ?? [];
+      if (normalPts.length === 0 && legacy.length > 0) {
+        next.cgEnvelopes = {
+          ...(next.cgEnvelopes ?? {}),
+          normal: { points: legacy },
+        };
+      }
+      next.cgEnvelope = undefined;
+      return next;
+    })();
+
+    const exists = profiles.some((p) => p.id === normalized.id);
+    const next = exists
+      ? profiles.map((p) => (p.id === normalized.id ? normalized : p))
+      : [normalized, ...profiles];
+
+    setProfiles(next);
+    const error = saveProfiles(next);
+    if (error) {
+      setStorageError(error);
+      setStatus(`Error saving profile: ${error.message}. Please save manually before continuing.`);
+      return;
+    }
+    setStorageError(null);
+    setSelectedId(normalized.id);
+    setDraft(normalized);
+
     // Save aircraft data to flight session
     updateAircraft({
-      profileId: draft.id,
-      ident: draft.tailNumber,
-      type: draft.makeModel,
-      emptyWeight: draft.emptyWeight.weightLb,
-      emptyMoment: draft.emptyWeight.momentLbIn,
-      maxRampWeight: draft.limits.maxRampLb,
-      maxTakeoffWeight: draft.limits.maxTakeoffLb,
-      maxLandingWeight: draft.limits.maxLandingLb,
-      fuelCapacityUsable: draft.fuel.usableGal,
-      fuelDensity: draft.fuel.densityLbPerGal,
+      profileId: normalized.id,
+      ident: normalized.tailNumber,
+      type: normalized.makeModel,
+      emptyWeight: normalized.emptyWeight.weightLb,
+      emptyMoment: normalized.emptyWeight.momentLbIn,
+      maxRampWeight: normalized.limits.maxRampLb,
+      maxTakeoffWeight: normalized.limits.maxTakeoffLb,
+      maxLandingWeight: normalized.limits.maxLandingLb,
+      fuelCapacityUsable: normalized.fuel.usableGal,
+      fuelDensity: normalized.fuel.densityLbPerGal,
       performance: {
-        cruisePerformance: draft.performance?.cruisePerformance || [],
-        takeoffGroundRoll: draft.performance?.takeoffGroundRoll || 0,
-        takeoffOver50ft: draft.performance?.takeoffOver50ft || 0,
-        landingGroundRoll: draft.performance?.landingGroundRoll || 0,
-        landingOver50ft: draft.performance?.landingOver50ft || 0,
+        cruisePerformance: normalized.performance?.cruisePerformance || [],
+        takeoffGroundRoll: normalized.performance?.takeoffGroundRoll || 0,
+        takeoffOver50ft: normalized.performance?.takeoffOver50ft || 0,
+        landingGroundRoll: normalized.performance?.landingGroundRoll || 0,
+        landingOver50ft: normalized.performance?.landingOver50ft || 0,
       },
     });
 

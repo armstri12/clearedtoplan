@@ -232,6 +232,51 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* Direct Tool Access (Debug Mode) */}
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px 0' }}>
+        <details style={{ marginBottom: 24 }}>
+          <summary style={{
+            cursor: 'pointer',
+            padding: '12px 16px',
+            background: '#f3f4f6',
+            borderRadius: 8,
+            fontWeight: 700,
+            fontSize: 14,
+            color: COLORS.text
+          }}>
+            🛠️ Debug Mode - Direct Tool Access
+          </summary>
+          <div style={{
+            padding: '16px',
+            marginTop: 8,
+            background: '#fef3c7',
+            border: '2px solid #fbbf24',
+            borderRadius: 8
+          }}>
+            <p style={{ fontSize: 13, color: '#92400e', marginBottom: 12 }}>
+              ⚠️ Bypass workflow enforcement - for debugging only
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              <Link to="/aircraft?debug=true" style={{ padding: '6px 12px', background: COLORS.primary, color: '#fff', borderRadius: 6, textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
+                Aircraft
+              </Link>
+              <Link to="/wb?debug=true" style={{ padding: '6px 12px', background: COLORS.primary, color: '#fff', borderRadius: 6, textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
+                W&B
+              </Link>
+              <Link to="/performance?debug=true" style={{ padding: '6px 12px', background: COLORS.primary, color: '#fff', borderRadius: 6, textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
+                Performance
+              </Link>
+              <Link to="/weather?debug=true" style={{ padding: '6px 12px', background: COLORS.primary, color: '#fff', borderRadius: 6, textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
+                Weather
+              </Link>
+              <Link to="/navlog?debug=true" style={{ padding: '6px 12px', background: COLORS.primary, color: '#fff', borderRadius: 6, textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
+                Navlog
+              </Link>
+            </div>
+          </div>
+        </details>
+      </div>
+
       {/* Flight Planning Workflow */}
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '60px 24px' }}>
         <div style={{ textAlign: 'center', marginBottom: 48 }}>
