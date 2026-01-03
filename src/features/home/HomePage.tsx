@@ -12,6 +12,8 @@ const COLORS = {
   textLight: '#64748b', // slate-500
 };
 
+const VERSION = '1.0.0';
+
 export default function HomePage() {
   const navigate = useNavigate();
   const { currentSession, savedSessions, startNewSession, loadSession, deleteSession } = useFlightSession();
@@ -38,7 +40,7 @@ export default function HomePage() {
         style={{
           background: `linear-gradient(135deg, ${COLORS.primary} 0%, ${COLORS.primaryDark} 100%)`,
           color: '#fff',
-          padding: '80px 24px',
+          padding: '120px 24px 100px',
           textAlign: 'center',
         }}
       >
@@ -107,7 +109,7 @@ export default function HomePage() {
 
       {/* Current Session / Saved Sessions */}
       {(currentSession || savedSessions.length > 0) && (
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px 0' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '60px 24px 0' }}>
           {currentSession && (
             <div
               style={{
@@ -233,7 +235,7 @@ export default function HomePage() {
       )}
 
       {/* Direct Tool Access (Debug Mode) */}
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 24px 0' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '60px 24px 0' }}>
         <details style={{ marginBottom: 24 }}>
           <summary style={{
             cursor: 'pointer',
@@ -278,7 +280,7 @@ export default function HomePage() {
       </div>
 
       {/* Flight Planning Workflow */}
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '60px 24px' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '80px 24px' }}>
         <div style={{ textAlign: 'center', marginBottom: 48 }}>
           <h2 style={{ fontSize: 36, fontWeight: 900, color: COLORS.text, marginBottom: 12 }}>
             Your Flight Planning Workflow
@@ -376,7 +378,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* The Story */}
+      {/* The Story - Condensed */}
       <div
         style={{
           background: '#fff',
@@ -384,173 +386,81 @@ export default function HomePage() {
           borderTop: `1px solid #e2e8f0`,
         }}
       >
-        <div style={{ maxWidth: 800, margin: '0 auto' }}>
+        <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <h2
             style={{
               fontSize: 36,
               fontWeight: 900,
               color: COLORS.text,
-              marginBottom: 24,
+              marginBottom: 32,
               textAlign: 'center',
             }}
           >
-            The Broken Airplane That Started It All
+            Why I Built This
           </h2>
 
-          <div style={{ fontSize: 16, lineHeight: 1.8, color: COLORS.text }}>
-            <p style={{ marginBottom: 24, fontSize: 18, fontStyle: 'italic', color: COLORS.primary }}>
-              "Life is not linear. It has a beginning, and an end. But, ultimately, it's a choose your own
-              adventure story."
-            </p>
-
-            <p style={{ marginBottom: 20 }}>
-              This is my story – and it starts with a dream that refused to die.
-            </p>
-
-            <h3 style={{ fontSize: 24, fontWeight: 700, marginTop: 40, marginBottom: 16, color: COLORS.primary }}>
-              The Broken Beginning
-            </h3>
-            <p style={{ marginBottom: 20 }}>
-              Picture this: early teens, and I'm handed an old, broken, incomplete radio control airplane. Most
-              people would see junk. I saw possibility.
-            </p>
-            <p style={{ marginBottom: 20 }}>
-              For years – my entire teenage years, actually – that plane never successfully flew for more than a
-              few seconds. But I kept trying. I kept believing that somehow, someway, I'd figure it out.
-            </p>
-            <p style={{ marginBottom: 20 }}>
-              It's funny how the universe works. That "failure" led me to discover the Titusville airport, where
-              they had a grass runway that somehow – and I still don't know how they allowed this – let us fly
-              our RC planes.
-            </p>
-
-            <h3 style={{ fontSize: 24, fontWeight: 700, marginTop: 40, marginBottom: 16, color: COLORS.primary }}>
-              Finding My People
-            </h3>
-            <p style={{ marginBottom: 20 }}>
-              That's where I met them. The older pilots who became my unexpected mentors and friends. Dick Saxton
-              stands out among them. He had just jumped into the hobby himself, but his passion was infectious.
-              While I shared my technical knowledge with him, he shared something more valuable – the pure joy of
-              flight.
-            </p>
-            <p style={{ marginBottom: 20 }}>
-              Those afternoons at Titusville changed everything. Being around real aircraft, hearing the stories,
-              watching planes take off and land… it sparked something deeper. A desire to learn to fly real
-              aircraft.
-            </p>
-            <p style={{ marginBottom: 20 }}>But life, as it tends to do, had other plans.</p>
-
-            <h3 style={{ fontSize: 24, fontWeight: 700, marginTop: 40, marginBottom: 16, color: COLORS.primary }}>
-              The Winding Path
-            </h3>
-            <p style={{ marginBottom: 20 }}>
-              Fast forward through undergrad, grad school, divorce, and restarting life as an intern at Disney.
-              Life became a rollercoaster – and not the fun kind.
-            </p>
-            <p style={{ marginBottom: 20 }}>
-              The financial reality was harsh. There were weeks when squeezing money together for groceries was a
-              challenge, let alone pursuing something as expensive as flight training. When you're counting every
-              dollar just to make it through the week, a $15,000+ pilot's license feels like an impossible dream.
-            </p>
-            <p style={{ marginBottom: 20 }}>
-              So I put the dream on the shelf. Not abandoned, just… waiting. Waiting for life to stabilize, for
-              finances to improve, for the right moment when I could finally afford to chase what I'd always
-              wanted.
-            </p>
-            <p style={{ marginBottom: 20, fontStyle: 'italic' }}>Dreams, it turns out, are patient. They wait.</p>
-
-            <h3 style={{ fontSize: 24, fontWeight: 700, marginTop: 40, marginBottom: 16, color: COLORS.primary }}>
-              The Gift That Changed Everything
-            </h3>
-            <p style={{ marginBottom: 20 }}>
-              Christmas 2022. My fiancée (now wife) surprised me with a discovery flight out of BVY.
-            </p>
-            <p style={{ marginBottom: 20 }}>
-              I can't adequately describe what it felt like to finally be in the left seat of a real airplane.
-              That broken RC plane from my teens, those afternoons at Titusville, all those years of dreaming – it
-              all came rushing back. But this time, it was real.
-            </p>
-            <p style={{ marginBottom: 20 }}>Then, Christmas 2023. Another surprise. A Bose A20 headset.</p>
-            <p style={{ marginBottom: 20 }}>
-              But here's the thing – it wasn't just the gifts. It was what they represented. For the first time in
-              my life, I had someone who wasn't just tolerating my dreams but actively pushing me toward them.
-              Someone who saw that this wasn't just a hobby or a whim – it was part of who I am.
-            </p>
-            <p
-              style={{
-                marginBottom: 20,
-                fontWeight: 700,
-                fontSize: 18,
-                color: COLORS.primary,
-                padding: '16px 24px',
-                background: '#eff6ff',
-                borderLeft: `4px solid ${COLORS.primary}`,
-                borderRadius: 8,
-              }}
-            >
-              She believed in this dream even when I couldn't afford to believe in it myself.
-            </p>
-
-            <h3 style={{ fontSize: 24, fontWeight: 700, marginTop: 40, marginBottom: 16, color: COLORS.primary }}>
-              Why I Built This
-            </h3>
-            <p style={{ marginBottom: 20 }}>
-              Now at 35, I'm working through my private pilot training. And like many pilots, I quickly realized
-              that flight planning tools were either expensive, clunky, or missing features I needed as a student.
-            </p>
-            <p style={{ marginBottom: 20 }}>
-              So I built Cleared to Plan. Free, open-source, and built with real student pilot workflows in mind.
-              Weight & balance with visual envelopes. Performance calculations with safety margins. Real-time
-              weather with decoded TAFs. Everything I wished I had when I started.
-            </p>
-            <p style={{ marginBottom: 20 }}>
-              This isn't just a tool – it's part of my journey. Every feature comes from a real need I encountered
-              during training. Every calculation is backed by FAA guidance and POH standards. Every safety warning
-              is there because I know how easy it is to overlook details when you're learning.
-            </p>
-
-            <h3 style={{ fontSize: 24, fontWeight: 700, marginTop: 40, marginBottom: 16, color: COLORS.primary }}>
-              What's Next
-            </h3>
-            <p style={{ marginBottom: 20 }}>
-              I'm sharing this journey authentically – the struggles, setbacks, and small victories. If this tool
-              helps you plan safer flights, that's amazing. If my story inspires you to chase your own aviation
-              dream, that's even better.
-            </p>
-            <p style={{ marginBottom: 20, fontStyle: 'italic', fontSize: 18, color: COLORS.primary }}>
-              Dreams don't have expiration dates. Life isn't linear. And sometimes the path to your destination is
-              longer and more winding than you expected – but that doesn't make it any less worth taking.
-            </p>
-
-            <div
-              style={{
-                marginTop: 48,
-                padding: 24,
-                background: `linear-gradient(135deg, ${COLORS.primary}15, ${COLORS.accent}15)`,
-                borderRadius: 12,
-                border: `2px solid ${COLORS.primary}30`,
-                textAlign: 'center',
-              }}
-            >
-              <p style={{ fontSize: 18, marginBottom: 16, fontWeight: 600 }}>
-                Ready to start your flight planning?
-              </p>
-              <Link
-                to="/aircraft"
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 32, alignItems: 'center' }}>
+            {/* Photo */}
+            <div>
+              <img
+                src="https://flywithian.com/wp-content/uploads/2025/06/Dick-and-Ian_16_9.jpg"
+                alt="Dick and Ian at the airport"
                 style={{
-                  padding: '14px 28px',
-                  background: COLORS.primary,
-                  color: '#fff',
-                  borderRadius: 10,
-                  fontWeight: 700,
-                  fontSize: 16,
-                  textDecoration: 'none',
-                  display: 'inline-block',
+                  width: '100%',
+                  borderRadius: 12,
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                 }}
-              >
-                Get Started →
-              </Link>
+              />
+              <div style={{ fontSize: 13, color: COLORS.textLight, marginTop: 8, textAlign: 'center', fontStyle: 'italic' }}>
+                With Dick Saxton, who sparked my love of aviation
+              </div>
             </div>
+
+            {/* Story Text */}
+            <div style={{ fontSize: 16, lineHeight: 1.7, color: COLORS.text }}>
+              <p style={{ marginBottom: 16 }}>
+                At 35, I'm finally pursuing the dream I've had since I was a teenager. It started with a broken RC airplane and afternoons at a small airport in Titusville, where I met pilots like Dick Saxton who shared their passion for flight.
+              </p>
+              <p style={{ marginBottom: 16 }}>
+                Life took me through college, grad school, tough financial times, and a winding path back to aviation. My wife believed in this dream even when I couldn't afford to, surprising me with a discovery flight and later a Bose A20 headset.
+              </p>
+              <p style={{ marginBottom: 16 }}>
+                Now, as a student pilot, I built Cleared to Plan because I needed better flight planning tools. It's free, open-source, and designed with student pilot workflows in mind—because I know exactly what it's like to be learning.
+              </p>
+              <p style={{ marginBottom: 0, fontStyle: 'italic', color: COLORS.primary, fontWeight: 600 }}>
+                Dreams don't have expiration dates. Sometimes the path is longer than expected, but that doesn't make it any less worth taking.
+              </p>
+            </div>
+          </div>
+
+          <div
+            style={{
+              marginTop: 48,
+              padding: 24,
+              background: `linear-gradient(135deg, ${COLORS.primary}15, ${COLORS.accent}15)`,
+              borderRadius: 12,
+              border: `2px solid ${COLORS.primary}30`,
+              textAlign: 'center',
+            }}
+          >
+            <p style={{ fontSize: 18, marginBottom: 16, fontWeight: 600 }}>
+              Ready to start your flight planning?
+            </p>
+            <button
+              onClick={() => setShowNewSessionModal(true)}
+              style={{
+                padding: '14px 28px',
+                background: COLORS.primary,
+                color: '#fff',
+                borderRadius: 10,
+                fontWeight: 700,
+                fontSize: 16,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              Get Started →
+            </button>
           </div>
         </div>
       </div>
@@ -594,6 +504,9 @@ export default function HomePage() {
           </div>
           <div style={{ fontSize: 12, opacity: 0.6, marginTop: 8 }}>
             Not for commercial use • VFR only • Educational purposes
+          </div>
+          <div style={{ fontSize: 11, opacity: 0.5, marginTop: 12, fontFamily: 'monospace' }}>
+            v{VERSION}
           </div>
         </div>
       </div>
