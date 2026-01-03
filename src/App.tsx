@@ -1,5 +1,5 @@
 import { NavLink, Route, Routes, useLocation } from 'react-router-dom';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import HomePage from './features/home/HomePage';
 import AircraftPage from './features/aircraft/AircraftPage';
 import WeightBalancePage from './features/weightBalance/WeightBalancePage';
@@ -10,6 +10,7 @@ import { WorkflowProgress } from './components/WorkflowProgress';
 import { WorkflowGuard } from './components/WorkflowGuard';
 import { TripHeader } from './components/TripHeader';
 import { useAuth } from './context/AuthContext';
+import { useFlightSession, type FlightSession } from './context/FlightSessionContext';
 
 // Consistent color scheme
 const COLORS = {
@@ -23,14 +24,43 @@ const COLORS = {
   border: '#e2e8f0', // slate-200
 };
 
+type Step = keyof FlightSession['completed'];
+
+const STEP_ORDER: Step[] = ['aircraft', 'weightBalance', 'performance', 'weather', 'navlog'];
+
+const STEP_ROUTES: Record<Step, string> = {
+  aircraft: '/aircraft',
+  weightBalance: '/wb',
+  performance: '/performance',
+  weather: '/weather',
+  navlog: '/navlog',
+};
+
+const NAV_ITEMS: Array<{ step: Step; label: string; to: string }> = [
+  { step: 'aircraft', label: '1. Aircraft', to: STEP_ROUTES.aircraft },
+  { step: 'weightBalance', label: '2. W&B', to: STEP_ROUTES.weightBalance },
+  { step: 'performance', label: '3. Performance', to: STEP_ROUTES.performance },
+  { step: 'weather', label: '4. Weather', to: STEP_ROUTES.weather },
+  { step: 'navlog', label: '5. Navlog', to: STEP_ROUTES.navlog },
+];
+
+function getStepFromPath(pathname: string): Step | null {
+  const match = (Object.entries(STEP_ROUTES) as Array<[Step, string]>).find(([, path]) =>
+    pathname.startsWith(path),
+  );
+  return match ? match[0] : null;
+}
+
 function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const isHomePage = location.pathname === '/';
   const { user, login, logout, isAuthenticated } = useAuth();
+  const { currentSession, completeStep } = useFlightSession();
   const [showLogin, setShowLogin] = useState(false);
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const activeStep = useMemo(() => getStepFromPath(location.pathname), [location.pathname]);
 
   function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -56,6 +86,17 @@ function Layout({ children }: { children: React.ReactNode }) {
     fontSize: 14,
     whiteSpace: 'nowrap' as const,
   });
+
+  const handleNavClick = (targetStep: Step) => {
+    if (!currentSession || !activeStep) return;
+
+    const currentIndex = STEP_ORDER.indexOf(activeStep);
+    const targetIndex = STEP_ORDER.indexOf(targetStep);
+
+    if (targetIndex > currentIndex) {
+      completeStep(activeStep);
+    }
+  };
 
   return (
     <div style={{ fontFamily: 'system-ui', background: COLORS.background, minHeight: '100vh' }}>
@@ -98,21 +139,11 @@ function Layout({ children }: { children: React.ReactNode }) {
                 flexWrap: 'wrap',
               }}
             >
-              <NavLink to="/aircraft" style={linkStyle}>
-                1. Aircraft
-              </NavLink>
-              <NavLink to="/wb" style={linkStyle}>
-                2. W&amp;B
-              </NavLink>
-              <NavLink to="/performance" style={linkStyle}>
-                3. Performance
-              </NavLink>
-              <NavLink to="/weather" style={linkStyle}>
-                4. Weather
-              </NavLink>
-              <NavLink to="/navlog" style={linkStyle}>
-                5. Navlog
-              </NavLink>
+              {NAV_ITEMS.map(({ step, label, to }) => (
+                <NavLink key={step} to={to} style={linkStyle} onClick={() => handleNavClick(step)}>
+                  {label}
+                </NavLink>
+              ))}
 
               {/* Donate Button */}
               <a

@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useFlightSession } from '../context/FlightSessionContext';
 
 const COLORS = {
@@ -27,11 +27,22 @@ const STEP_ROUTES: Record<keyof typeof STEP_LABELS, string> = {
   navlog: '/navlog',
 };
 
+const STEP_ORDER: Array<keyof typeof STEP_LABELS> = ['aircraft', 'weightBalance', 'performance', 'weather', 'navlog'];
+
+function getStepFromPath(pathname: string): keyof typeof STEP_LABELS | null {
+  const match = (Object.entries(STEP_ROUTES) as Array<[keyof typeof STEP_LABELS, string]>).find(([, path]) =>
+    pathname.startsWith(path),
+  );
+  return match ? match[0] : null;
+}
+
 export function TripHeader() {
-  const { currentSession, getNextStep } = useFlightSession();
+  const { currentSession, getNextStep, completeStep } = useFlightSession();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const nextStep = currentSession ? getNextStep() : null;
+  const activeStep = useMemo(() => getStepFromPath(location.pathname), [location.pathname]);
 
   const incomplete = useMemo(() => {
     if (!currentSession) return [];
@@ -39,6 +50,31 @@ export function TripHeader() {
       .filter(([, done]) => !done)
       .map(([key]) => key);
   }, [currentSession]);
+
+  const getNextStepAfterCompleting = useCallback(
+    (completedStep: keyof typeof STEP_LABELS | null) => {
+      if (!currentSession) return null;
+
+      return (
+        STEP_ORDER.find((step) => {
+          const isComplete = step === completedStep ? true : currentSession.completed[step];
+          return !isComplete;
+        }) ?? null
+      );
+    },
+    [currentSession],
+  );
+
+  const handleNavigate = (step: keyof typeof STEP_LABELS) => {
+    if (!currentSession) return;
+
+    if (activeStep) {
+      completeStep(activeStep);
+    }
+
+    const destinationStep = activeStep ? getNextStepAfterCompleting(activeStep) ?? step : step;
+    navigate(STEP_ROUTES[destinationStep]);
+  };
 
   if (!currentSession) return null;
 
@@ -92,7 +128,7 @@ export function TripHeader() {
             </div>
             {nextStep && (
               <button
-                onClick={() => navigate(STEP_ROUTES[nextStep])}
+                onClick={() => handleNavigate(nextStep)}
                 style={{
                   padding: '8px 12px',
                   background: COLORS.primary,
