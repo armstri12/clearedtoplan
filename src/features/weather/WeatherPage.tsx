@@ -1,60 +1,232 @@
 import { useState } from 'react';
 import { getMetar, getTaf, getNearestTaf, parseIcaoCode, type MetarData, type TafData } from '../../services/aviationApi';
 
-// Helper to parse TAF into groups from raw text
-function parseTafGroups(rawTaf: string): Array<{
-  period: string;
-  text: string;
-}> {
-  if (!rawTaf) return [];
+// Decode cloud coverage codes
+function decodeCloudCoverage(code: string): string {
+  const codes: Record<string, string> = {
+    'SKC': 'Clear',
+    'CLR': 'Clear',
+    'FEW': 'Few',
+    'SCT': 'Scattered',
+    'BKN': 'Broken',
+    'OVC': 'Overcast',
+    'VV': 'Vertical Visibility',
+  };
+  return codes[code] || code;
+}
 
-  // Split on change groups: FM, BECMG, TEMPO, PROB
-  const changeGroupRegex = /\b(FM\d{6}|BECMG\s+\d{4}\/\d{4}|TEMPO\s+\d{4}\/\d{4}|PROB\d{2}\s+(?:TEMPO\s+)?\d{4}\/\d{4})/g;
+// Decode weather phenomena
+function decodeWeather(wx: string): string {
+  const intensity: Record<string, string> = { '-': 'Light', '+': 'Heavy', 'VC': 'Vicinity' };
+  const descriptor: Record<string, string> = {
+    'MI': 'Shallow', 'BC': 'Patches', 'PR': 'Partial', 'DR': 'Drifting',
+    'BL': 'Blowing', 'SH': 'Showers', 'TS': 'Thunderstorm', 'FZ': 'Freezing'
+  };
+  const precipitation: Record<string, string> = {
+    'DZ': 'Drizzle', 'RA': 'Rain', 'SN': 'Snow', 'SG': 'Snow Grains',
+    'IC': 'Ice Crystals', 'PL': 'Ice Pellets', 'GR': 'Hail', 'GS': 'Small Hail',
+    'UP': 'Unknown Precip'
+  };
+  const obscuration: Record<string, string> = {
+    'BR': 'Mist', 'FG': 'Fog', 'FU': 'Smoke', 'VA': 'Volcanic Ash',
+    'DU': 'Dust', 'SA': 'Sand', 'HZ': 'Haze', 'PY': 'Spray'
+  };
+  const other: Record<string, string> = {
+    'PO': 'Dust Whirls', 'SQ': 'Squalls', 'FC': 'Funnel Cloud', 'SS': 'Sandstorm', 'DS': 'Duststorm'
+  };
 
-  const parts = rawTaf.split(changeGroupRegex).filter(p => p && p.trim());
+  let result = '';
+  let remaining = wx;
 
-  if (parts.length === 0) return [];
+  // Check intensity
+  if (intensity[wx[0]]) {
+    result += intensity[wx[0]] + ' ';
+    remaining = wx.slice(1);
+  }
 
-  const groups: Array<{ period: string; text: string }> = [];
-
-  // First group is the initial forecast (after the header)
-  // Find where forecast actually starts (after valid time)
-  const validTimeMatch = rawTaf.match(/\d{6}Z\s+(\d{4}\/\d{4})/);
-  if (validTimeMatch) {
-    const validPeriod = validTimeMatch[1];
-    const afterHeader = rawTaf.substring(rawTaf.indexOf(validPeriod) + validPeriod.length);
-    const firstChangeIndex = afterHeader.search(changeGroupRegex);
-
-    if (firstChangeIndex > 0) {
-      groups.push({
-        period: validPeriod,
-        text: afterHeader.substring(0, firstChangeIndex).trim()
-      });
-    } else if (firstChangeIndex < 0) {
-      groups.push({
-        period: validPeriod,
-        text: afterHeader.trim()
-      });
+  // Check for 2-letter codes
+  const all = { ...descriptor, ...precipitation, ...obscuration, ...other };
+  for (let i = 0; i < remaining.length; i += 2) {
+    const code = remaining.slice(i, i + 2);
+    if (all[code]) {
+      result += all[code] + ' ';
     }
   }
 
-  // Parse change groups
-  for (let i = 0; i < parts.length - 1; i += 2) {
-    const period = parts[i];
-    const text = parts[i + 1];
-    if (period && text) {
-      groups.push({ period: period.trim(), text: text.trim() });
+  return result.trim() || wx;
+}
+
+// Parse a single TAF group
+type TafGroup = {
+  type: string; // 'BASE', 'FM', 'BECMG', 'TEMPO', 'PROB'
+  timeFrom: string;
+  timeTo: string;
+  wind: { dir: number; speed: number; gust?: number } | null;
+  visibility: string | null;
+  weather: string[];
+  clouds: Array<{ coverage: string; altitude: number }>;
+  raw: string;
+};
+
+function parseSingleGroup(rawText: string, validPeriod?: string): TafGroup | null {
+  const parts = rawText.trim().split(/\s+/);
+
+  let type = 'BASE';
+  let timeFrom = '';
+  let timeTo = '';
+  let partIndex = 0;
+
+  // Check for group type
+  if (parts[0]?.match(/^FM\d{6}$/)) {
+    type = 'FM';
+    const time = parts[0].slice(2); // Remove 'FM'
+    timeFrom = time.slice(0, 4);
+    timeTo = '';
+    partIndex = 1;
+  } else if (parts[0]?.match(/^BECMG/)) {
+    type = 'BECMG';
+    const timeMatch = parts[1]?.match(/(\d{4})\/(\d{4})/);
+    if (timeMatch) {
+      timeFrom = timeMatch[1];
+      timeTo = timeMatch[2];
+      partIndex = 2;
+    }
+  } else if (parts[0]?.match(/^TEMPO/)) {
+    type = 'TEMPO';
+    const timeMatch = parts[1]?.match(/(\d{4})\/(\d{4})/);
+    if (timeMatch) {
+      timeFrom = timeMatch[1];
+      timeTo = timeMatch[2];
+      partIndex = 2;
+    }
+  } else if (parts[0]?.match(/^PROB\d{2}/)) {
+    type = 'PROB';
+    const timeMatch = parts[1]?.match(/(\d{4})\/(\d{4})/);
+    if (timeMatch) {
+      timeFrom = timeMatch[1];
+      timeTo = timeMatch[2];
+      partIndex = 2;
+    }
+  } else if (validPeriod) {
+    const [from, to] = validPeriod.split('/');
+    timeFrom = from;
+    timeTo = to;
+  }
+
+  let wind = null;
+  let visibility = null;
+  const weather: string[] = [];
+  const clouds: Array<{ coverage: string; altitude: number }> = [];
+
+  for (let i = partIndex; i < parts.length; i++) {
+    const part = parts[i];
+
+    // Wind: 30006KT, VRB03KT
+    if (part.match(/^(\d{3}|VRB)\d{2,3}(G\d{2,3})?KT$/)) {
+      const match = part.match(/^(\d{3}|VRB)(\d{2,3})(G(\d{2,3}))?KT$/);
+      if (match) {
+        wind = {
+          dir: match[1] === 'VRB' ? 0 : parseInt(match[1]),
+          speed: parseInt(match[2]),
+          gust: match[4] ? parseInt(match[4]) : undefined
+        };
+      }
+    }
+    // Visibility: P6SM, 10SM, 1/2SM
+    else if (part.match(/^(P?\d+)?(\/\d+)?SM$/)) {
+      visibility = part.replace('P', '6+').replace('SM', ' SM');
+    }
+    // Weather phenomena: -SN, RA, TSRA
+    else if (part.match(/^(\+|-|VC)?(MI|BC|PR|DR|BL|SH|TS|FZ)?(DZ|RA|SN|SG|IC|PL|GR|GS|UP|BR|FG|FU|VA|DU|SA|HZ|PY|PO|SQ|FC|SS|DS)+$/)) {
+      weather.push(part);
+    }
+    // Clouds: FEW250, SCT015, BKN005, OVC010
+    else if (part.match(/^(SKC|CLR|FEW|SCT|BKN|OVC|VV)(\d{3})?$/)) {
+      const match = part.match(/^(SKC|CLR|FEW|SCT|BKN|OVC|VV)(\d{3})?$/);
+      if (match) {
+        clouds.push({
+          coverage: match[1],
+          altitude: match[2] ? parseInt(match[2]) * 100 : 0
+        });
+      }
+    }
+  }
+
+  return {
+    type,
+    timeFrom,
+    timeTo,
+    wind,
+    visibility,
+    weather,
+    clouds,
+    raw: rawText
+  };
+}
+
+function parseTafGroups(rawTaf: string): TafGroup[] {
+  if (!rawTaf) return [];
+
+  const groups: TafGroup[] = [];
+
+  // Extract valid period
+  const validMatch = rawTaf.match(/\d{6}Z\s+(\d{4}\/\d{4})/);
+  const validPeriod = validMatch ? validMatch[1] : '';
+
+  // Find start of forecast data (after valid period)
+  let forecastStart = rawTaf.indexOf(validPeriod) + validPeriod.length;
+  if (forecastStart < validPeriod.length) forecastStart = 0;
+
+  const forecastText = rawTaf.substring(forecastStart).trim();
+
+  // Split on FM, BECMG, TEMPO, PROB
+  const changeRegex = /\b(FM\d{6}|BECMG\s+\d{4}\/\d{4}|TEMPO\s+\d{4}\/\d{4}|PROB\d{2}\s+(?:TEMPO\s+)?\d{4}\/\d{4})/g;
+  const matches = [...forecastText.matchAll(changeRegex)];
+
+  if (matches.length === 0) {
+    // No change groups, entire thing is base forecast
+    const baseGroup = parseSingleGroup(forecastText, validPeriod);
+    if (baseGroup) groups.push(baseGroup);
+  } else {
+    // Parse base forecast (before first change group)
+    if (matches[0].index && matches[0].index > 0) {
+      const baseText = forecastText.substring(0, matches[0].index).trim();
+      if (baseText) {
+        const baseGroup = parseSingleGroup(baseText, validPeriod);
+        if (baseGroup) groups.push(baseGroup);
+      }
+    }
+
+    // Parse each change group
+    for (let i = 0; i < matches.length; i++) {
+      const match = matches[i];
+      const startIdx = match.index! + match[0].length;
+      const endIdx = matches[i + 1]?.index ?? forecastText.length;
+      const groupText = match[0] + ' ' + forecastText.substring(startIdx, endIdx).trim();
+      const group = parseSingleGroup(groupText);
+      if (group) groups.push(group);
     }
   }
 
   return groups;
 }
 
+// Calculate flight category from visibility and ceiling
+function calculateFlightCategory(vis: string | null, ceiling: number | null): string {
+  const visMiles = vis ? parseFloat(vis.replace(/[^\d.]/g, '')) : 999;
+  const ceilFt = ceiling ?? 99999;
+
+  if (visMiles >= 5 && ceilFt >= 3000) return 'VFR';
+  if (visMiles >= 3 && ceilFt >= 1000) return 'MVFR';
+  if (visMiles >= 1 && ceilFt >= 500) return 'IFR';
+  return 'LIFR';
+}
+
 type AirportWeather = {
   icao: string;
   metar: MetarData | null;
   taf: TafData | null;
-  tafIsNearby: boolean; // True if TAF is from a nearby airport
+  tafIsNearby: boolean;
   loading: boolean;
   error: string;
 };
@@ -71,13 +243,11 @@ export default function WeatherPage() {
       return;
     }
 
-    // Check if already added
     if (airports.some(a => a.icao === icao)) {
       alert(`${icao} is already in your weather briefing`);
       return;
     }
 
-    // Add placeholder while loading
     const newAirport: AirportWeather = {
       icao,
       metar: null,
@@ -91,12 +261,10 @@ export default function WeatherPage() {
     setSelectedIndex(airports.length);
     setIcaoInput('');
 
-    // Fetch METAR and TAF
     const metarData = await getMetar(icao);
     let tafData = await getTaf(icao);
     let tafIsNearby = false;
 
-    // If no TAF available, try to get nearest TAF
     if (!tafData && metarData) {
       tafData = await getNearestTaf(icao);
       if (tafData) {
@@ -104,7 +272,6 @@ export default function WeatherPage() {
       }
     }
 
-    // Update with results
     setAirports(prev => prev.map((a, i) =>
       i === airports.length ? {
         ...a,
@@ -480,51 +647,79 @@ export default function WeatherPage() {
                     </div>
                   )}
 
-                  {/* Forecast Groups */}
+                  {/* TAF Table */}
                   {selected.taf.raw_text && (() => {
                     const groups = parseTafGroups(selected.taf.raw_text);
                     if (groups.length === 0) return null;
 
                     return (
-                      <div style={{ marginBottom: 16 }}>
+                      <div style={{ marginBottom: 16, overflowX: 'auto' }}>
                         <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.7, marginBottom: 12 }}>
-                          FORECAST GROUPS
+                          FORECAST
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                          {groups.map((group, i) => (
-                            <div
-                              key={i}
-                              style={{
-                                padding: 12,
-                                borderRadius: 8,
-                                border: '2px solid #dbeafe',
-                                background: '#f0f9ff',
-                              }}
-                            >
-                              <div
-                                style={{
-                                  fontSize: 12,
-                                  fontWeight: 900,
-                                  color: '#1e40af',
-                                  marginBottom: 6,
-                                  fontFamily: 'monospace',
-                                }}
-                              >
-                                {group.period}
-                              </div>
-                              <div
-                                style={{
-                                  fontSize: 13,
-                                  fontFamily: 'monospace',
-                                  lineHeight: 1.6,
-                                  color: '#1f2937',
-                                }}
-                              >
-                                {group.text}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                          <thead>
+                            <tr style={{ background: '#f3f4f6' }}>
+                              <th style={{ padding: '8px 12px', textAlign: 'left', border: '1px solid #ddd', fontWeight: 800 }}>Period</th>
+                              <th style={{ padding: '8px 12px', textAlign: 'left', border: '1px solid #ddd', fontWeight: 800 }}>Type</th>
+                              <th style={{ padding: '8px 12px', textAlign: 'left', border: '1px solid #ddd', fontWeight: 800 }}>Wind</th>
+                              <th style={{ padding: '8px 12px', textAlign: 'left', border: '1px solid #ddd', fontWeight: 800 }}>Vis</th>
+                              <th style={{ padding: '8px 12px', textAlign: 'left', border: '1px solid #ddd', fontWeight: 800 }}>Weather</th>
+                              <th style={{ padding: '8px 12px', textAlign: 'left', border: '1px solid #ddd', fontWeight: 800 }}>Clouds</th>
+                              <th style={{ padding: '8px 12px', textAlign: 'left', border: '1px solid #ddd', fontWeight: 800 }}>Cat</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {groups.map((group, i) => {
+                              const ceiling = group.clouds.find(c => ['BKN', 'OVC', 'VV'].includes(c.coverage))?.altitude || null;
+                              const flightCat = calculateFlightCategory(group.visibility, ceiling);
+
+                              return (
+                                <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                                  <td style={{ padding: '8px 12px', border: '1px solid #ddd', fontFamily: 'monospace', fontSize: 12, fontWeight: 700 }}>
+                                    {group.timeFrom}/{group.timeTo || '----'}
+                                  </td>
+                                  <td style={{ padding: '8px 12px', border: '1px solid #ddd', fontSize: 11, fontWeight: 700, color: '#2563eb' }}>
+                                    {group.type}
+                                  </td>
+                                  <td style={{ padding: '8px 12px', border: '1px solid #ddd', fontFamily: 'monospace', fontSize: 12 }}>
+                                    {group.wind ? (
+                                      <>
+                                        {group.wind.dir === 0 ? 'VRB' : group.wind.dir.toString().padStart(3, '0')}°
+                                        {' @ '}
+                                        {group.wind.speed} kt
+                                        {group.wind.gust ? ` G${group.wind.gust}` : ''}
+                                      </>
+                                    ) : '-'}
+                                  </td>
+                                  <td style={{ padding: '8px 12px', border: '1px solid #ddd', fontFamily: 'monospace', fontSize: 12 }}>
+                                    {group.visibility || '-'}
+                                  </td>
+                                  <td style={{ padding: '8px 12px', border: '1px solid #ddd', fontSize: 12 }}>
+                                    {group.weather.length > 0 ? group.weather.map(w => decodeWeather(w)).join(', ') : '-'}
+                                  </td>
+                                  <td style={{ padding: '8px 12px', border: '1px solid #ddd', fontSize: 12 }}>
+                                    {group.clouds.length > 0 ? group.clouds.map(c =>
+                                      `${decodeCloudCoverage(c.coverage)}${c.altitude ? ' ' + c.altitude.toLocaleString() : ''}`
+                                    ).join(', ') : 'Clear'}
+                                  </td>
+                                  <td style={{ padding: '8px 12px', border: '1px solid #ddd' }}>
+                                    <span style={{
+                                      padding: '2px 8px',
+                                      borderRadius: 4,
+                                      fontSize: 11,
+                                      fontWeight: 800,
+                                      background: flightCat === 'VFR' ? '#dcfce7' : flightCat === 'MVFR' ? '#fef3c7' : '#fecaca',
+                                      color: flightCat === 'VFR' ? '#166534' : flightCat === 'MVFR' ? '#92400e' : '#991b1b',
+                                    }}>
+                                      {flightCat}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     );
                   })()}
@@ -539,7 +734,7 @@ export default function WeatherPage() {
                     }}
                   >
                     <div style={{ fontSize: 11, fontWeight: 800, opacity: 0.7, marginBottom: 6 }}>
-                      RAW TAF
+                      ORIGINAL TAF
                     </div>
                     <div
                       style={{
