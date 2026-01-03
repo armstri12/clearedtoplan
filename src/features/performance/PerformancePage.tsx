@@ -1,5 +1,4 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
 import { useFlightSession } from '../../context/FlightSessionContext';
 import { getMetar, parseIcaoCode, type MetarData } from '../../services/aviationApi';
 
@@ -355,8 +354,15 @@ function getRunwaySafetyLevel(requiredFt: number, availableFt: number | null) {
 }
 
 export default function PerformancePage() {
-  const navigate = useNavigate();
   const { currentSession, completeStep } = useFlightSession();
+
+  useEffect(() => {
+    if (!currentSession) return;
+
+    if (!currentSession.completed.performance) {
+      completeStep('performance');
+    }
+  }, [completeStep, currentSession]);
 
   // Input mode selection
   const [inputMode, setInputMode] = useState<'direct' | 'calculated'>('calculated');
@@ -1411,52 +1417,6 @@ export default function PerformancePage() {
         </div>
       </div>
 
-      {/* Continue Button */}
-      <div
-        style={{
-          marginTop: 32,
-          paddingTop: 24,
-          borderTop: '2px solid #e2e8f0',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <div style={{ fontSize: 14, color: '#64748b' }}>
-          {currentSession && (
-            <div>
-              Flight Plan: <strong>{currentSession.name}</strong>
-            </div>
-          )}
-        </div>
-        <button
-          onClick={() => {
-            completeStep('performance');
-            navigate('/weather');
-          }}
-          style={{
-            padding: '12px 32px',
-            background: '#2563eb',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 8,
-            fontWeight: 700,
-            fontSize: 16,
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = '#1e40af';
-            e.currentTarget.style.transform = 'translateY(-1px)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = '#2563eb';
-            e.currentTarget.style.transform = 'translateY(0)';
-          }}
-        >
-          Continue to Weather →
-        </button>
-      </div>
     </div>
   );
 }
