@@ -293,8 +293,23 @@ export async function getTaf(icao: string): Promise<TafData | null> {
 }
 
 /**
+ * Calculate distance between two lat/lon points using Haversine formula
+ * @returns distance in nautical miles
+ */
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 3440.065; // Earth's radius in nautical miles
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
  * Fetch nearest TAF when primary airport doesn't have one
- * Uses radial search around the METAR location
+ * Searches within expanding radius (50nm, then 100nm, then 150nm)
  * @param icao - 4-letter ICAO airport code
  * @returns TAF data from nearest airport or null
  */
@@ -309,47 +324,67 @@ export async function getNearestTaf(icao: string): Promise<TafData | null> {
     const metarResponse = await fetch(metarUrl);
 
     if (!metarResponse.ok) {
+      console.warn(`Failed to fetch METAR for ${icao} to find nearby TAF`);
       return null;
     }
 
     const metarData: AvWxMetarRaw[] = await metarResponse.json();
 
     if (!metarData || metarData.length === 0 || !metarData[0].lat || !metarData[0].lon) {
+      console.warn(`No coordinates available for ${icao} to search for nearby TAF`);
       return null;
     }
 
     const { lat, lon } = metarData[0];
 
-    // Search for TAFs within 50nm using lat/lon
-    // Format: minLat,minLon,maxLat,maxLon (approximately 50nm box)
-    const degreeOffset = 0.75; // Roughly 50nm
-    const minLat = lat - degreeOffset;
-    const maxLat = lat + degreeOffset;
-    const minLon = lon - degreeOffset;
-    const maxLon = lon + degreeOffset;
+    // Try expanding search radii: 50nm, 100nm, 150nm
+    const searchRadii = [0.75, 1.5, 2.25]; // degrees (roughly 50nm, 100nm, 150nm)
 
-    const tafUrl = `${WORKER_URL}/taf?bbox=${minLon},${minLat},${maxLon},${maxLat}&format=json`;
-    const response = await fetch(tafUrl);
+    for (const degreeOffset of searchRadii) {
+      const minLat = lat - degreeOffset;
+      const maxLat = lat + degreeOffset;
+      const minLon = lon - degreeOffset;
+      const maxLon = lon + degreeOffset;
 
-    if (!response.ok) {
-      return null;
+      const tafUrl = `${WORKER_URL}/taf?bbox=${minLon},${minLat},${maxLon},${maxLat}&format=json`;
+      console.log(`Searching for nearby TAF for ${icao} at (${lat}, ${lon}) with ${degreeOffset * 67}nm radius`);
+
+      const response = await fetch(tafUrl);
+
+      if (!response.ok) {
+        console.warn(`Failed to fetch nearby TAFs: ${response.status}`);
+        continue;
+      }
+
+      const data: AvWxTafRaw[] = await response.json();
+      console.log(`Found ${data?.length || 0} TAFs in area:`, data?.map(t => t.icaoId));
+
+      if (!data || data.length === 0) {
+        continue;
+      }
+
+      // Filter out the original airport and calculate distances
+      const nearbyTafsWithDistance = data
+        .filter(taf => taf.icaoId !== icao.toUpperCase() && taf.lat !== undefined && taf.lon !== undefined)
+        .map(taf => ({
+          taf,
+          distance: calculateDistance(lat, lon, taf.lat!, taf.lon!)
+        }))
+        .sort((a, b) => a.distance - b.distance);
+
+      console.log(`Nearby TAFs with distances:`, nearbyTafsWithDistance.map(t =>
+        `${t.taf.icaoId} (${Math.round(t.distance)}nm)`
+      ));
+
+      if (nearbyTafsWithDistance.length > 0) {
+        const nearest = nearbyTafsWithDistance[0];
+        console.log(`Using nearest TAF from ${nearest.taf.icaoId} (${Math.round(nearest.distance)}nm away)`);
+        return normalizeTaf(nearest.taf);
+      }
     }
 
-    const data: AvWxTafRaw[] = await response.json();
-
-    if (!data || data.length === 0) {
-      return null;
-    }
-
-    // Filter out the original airport if it appears in results
-    const nearbyTafs = data.filter(taf => taf.icaoId !== icao.toUpperCase());
-
-    if (nearbyTafs.length === 0) {
-      return null;
-    }
-
-    // Return the first (nearest) TAF found
-    return normalizeTaf(nearbyTafs[0]);
+    console.warn(`No TAFs found within 150nm of ${icao}`);
+    return null;
   } catch (error) {
     console.error('Error fetching nearest TAF:', error);
     return null;
