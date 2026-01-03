@@ -2,45 +2,47 @@ import { useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { clamp } from '../../lib/utils';
 
+const COLORS = {
+  primary: '#2563eb',
+  primaryDark: '#1e40af',
+  primaryLight: '#3b82f6',
+  accent: '#60a5fa',
+  background: '#f8fafc',
+  text: '#1e293b',
+  textLight: '#64748b',
+  border: '#e2e8f0',
+};
 
 type VarDir = 'E' | 'W';
 
 type Leg = {
   id: string;
+  checkpoint: string;
   from: string;
   to: string;
-
-  distNm: string;     // keep as string for blanks/decimals
-  tcDegT: string;
-
-  altFt: string;
-
-  windDirDegT: string; // direction wind is FROM (true)
-  windSpdKt: string;
-
-  // Optional per-leg overrides (blank = use trip defaults)
-  varDeg: string;     // magnitude
+  altitude: string;
+  course: string;
+  distNm: string;
+  windDir: string;
+  windSpd: string;
+  varDeg: string;
   varDir: VarDir;
-  devDeg: string;     // signed, e.g. "-2" or "1.5"
+  devDeg: string;
+  remarks: string;
 };
 
-type PerfPreset = {
-  rpm: number;
-  altFt: number;
-  tasKt: number;
-  gph: number;
+type FlightPlanInfo = {
+  aircraftType: string;
+  aircraftIdent: string;
+  pilotName: string;
+  departure: string;
+  destination: string;
+  route: string;
+  cruiseAlt: string;
+  departureTime: string;
+  ete: string;
+  fuelOnboard: string;
 };
-
-const PERF: PerfPreset[] = [
-  // v1 presets (adjust later)
-  { rpm: 2300, altFt: 3000, tasKt: 108, gph: 8.4 },
-  { rpm: 2300, altFt: 4500, tasKt: 110, gph: 8.5 },
-  { rpm: 2300, altFt: 6500, tasKt: 112, gph: 8.6 },
-
-  { rpm: 2400, altFt: 3000, tasKt: 112, gph: 9.0 },
-  { rpm: 2400, altFt: 4500, tasKt: 114, gph: 9.2 },
-  { rpm: 2400, altFt: 6500, tasKt: 116, gph: 9.4 },
-];
 
 function makeId(prefix = 'leg') {
   return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
@@ -59,84 +61,81 @@ function norm360(x: number) {
 function rad(deg: number) {
   return (deg * Math.PI) / 180;
 }
+
 function deg(rad: number) {
   return (rad * 180) / Math.PI;
 }
 
-function pickPerf(rpm: number, altFt: number) {
-  // nearest match by (rpm exact, altitude nearest)
-  const sameRpm = PERF.filter((p) => p.rpm === rpm);
-  if (!sameRpm.length) return { tasKt: 110, gph: 8.5 };
-
-  let best = sameRpm[0];
-  let bestD = Math.abs(best.altFt - altFt);
-  for (const p of sameRpm) {
-    const d = Math.abs(p.altFt - altFt);
-    if (d < bestD) {
-      best = p;
-      bestD = d;
-    }
-  }
-  return { tasKt: best.tasKt, gph: best.gph };
-}
-
-// Wind triangle planning math (manual navlog style)
-// inputs: TC (true), wind dir FROM (true), wind speed, TAS
+// Wind triangle calculations
 function computeWind(tc: number, windDirFrom: number, windSpd: number, tas: number) {
   if (tas <= 0) return { wca: 0, th: norm360(tc), gs: 0 };
 
   const rel = rad(norm360(windDirFrom - tc));
   const cross = windSpd * Math.sin(rel);
-  const head = windSpd * Math.cos(rel); // + = headwind, - = tailwind
+  const head = windSpd * Math.cos(rel);
 
   const ratio = clamp(cross / tas, -1, 1);
-  const wca = deg(Math.asin(ratio)); // signed
+  const wca = deg(Math.asin(ratio));
   const th = norm360(tc + wca);
-
-  // planning GS approximation
   const gs = Math.max(0, tas - head);
 
   return { wca, th, gs };
 }
 
 function applyVariation(th: number, varDeg: number, varDir: VarDir) {
-  // East is least: MH = TH - Var(E)
-  // West is best: MH = TH + Var(W)
   const mh = varDir === 'E' ? th - varDeg : th + varDeg;
   return norm360(mh);
 }
 
 function applyDeviation(mh: number, devSigned: number) {
-  // devSigned is signed (user enters -2, +1.5, etc.)
   return norm360(mh + devSigned);
 }
 
+function formatTime(minutes: number): string {
+  if (!minutes) return '0:00';
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  return h > 0 ? `${h}:${m.toString().padStart(2, '0')}` : `0:${m.toString().padStart(2, '0')}`;
+}
+
 export default function NavlogPage() {
+  // Flight plan information
+  const [flightPlan, setFlightPlan] = useState<FlightPlanInfo>({
+    aircraftType: 'C172S',
+    aircraftIdent: 'N12345',
+    pilotName: '',
+    departure: '',
+    destination: '',
+    route: '',
+    cruiseAlt: '4500',
+    departureTime: '',
+    ete: '',
+    fuelOnboard: '40.0',
+  });
+
   // Trip defaults
-  const [rpm, setRpm] = useState<number>(2300);
-  const [tripAltFt, setTripAltFt] = useState<string>('4500');
-
-  const [tripWindDirDegT, setTripWindDirDegT] = useState<string>('270');
-  const [tripWindSpdKt, setTripWindSpdKt] = useState<string>('15');
-
+  const [tas, setTas] = useState<string>('110');
+  const [fuelBurn, setFuelBurn] = useState<string>('8.5');
+  const [tripWindDir, setTripWindDir] = useState<string>('270');
+  const [tripWindSpd, setTripWindSpd] = useState<string>('15');
   const [tripVarDeg, setTripVarDeg] = useState<string>('2');
   const [tripVarDir, setTripVarDir] = useState<VarDir>('W');
 
   const [legs, setLegs] = useState<Leg[]>(() => [
     {
       id: makeId(),
+      checkpoint: 'DEP',
       from: '',
       to: '',
+      altitude: '',
+      course: '',
       distNm: '',
-      tcDegT: '',
-      altFt: '',
-
-      windDirDegT: '',
-      windSpdKt: '',
-
+      windDir: '',
+      windSpd: '',
       varDeg: '',
       varDir: 'W',
       devDeg: '',
+      remarks: '',
     },
   ]);
 
@@ -145,74 +144,64 @@ export default function NavlogPage() {
       ...prev,
       {
         id: makeId(),
-        from: '',
+        checkpoint: '',
+        from: prev[prev.length - 1]?.to || '',
         to: '',
+        altitude: '',
+        course: '',
         distNm: '',
-        tcDegT: '',
-        altFt: '',
-        windDirDegT: '',
-        windSpdKt: '',
+        windDir: '',
+        windSpd: '',
         varDeg: '',
         varDir: tripVarDir,
         devDeg: '',
+        remarks: '',
       },
     ]);
+  }
+
+  function removeLeg(id: string) {
+    if (legs.length > 1) {
+      setLegs((prev) => prev.filter((l) => l.id !== id));
+    }
   }
 
   function updateLeg(id: string, patch: Partial<Leg>) {
     setLegs((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
   }
 
-  const perf = useMemo(() => {
-    const alt = toNum(tripAltFt);
-    return pickPerf(rpm, alt);
-  }, [rpm, tripAltFt]);
+  function updateFlightPlan(patch: Partial<FlightPlanInfo>) {
+    setFlightPlan((prev) => ({ ...prev, ...patch }));
+  }
 
   const computed = useMemo(() => {
-    const defaultAlt = toNum(tripAltFt);
-
-    const defaultWindDir = toNum(tripWindDirDegT);
-    const defaultWindSpd = toNum(tripWindSpdKt);
-
-    const defaultVarDeg = toNum(tripVarDeg);
-    const defaultVarDir = tripVarDir;
-
-    const tas = perf.tasKt;
-    const gph = perf.gph;
+    const cruiseTas = toNum(tas);
+    const gph = toNum(fuelBurn);
 
     const rows = legs.map((l) => {
-      const tc = toNum(l.tcDegT);
+      const tc = toNum(l.course);
       const dist = toNum(l.distNm);
 
-      const alt = l.altFt.trim() ? toNum(l.altFt) : defaultAlt;
+      const windDir = l.windDir.trim() ? toNum(l.windDir) : toNum(tripWindDir);
+      const windSpd = l.windSpd.trim() ? toNum(l.windSpd) : toNum(tripWindSpd);
 
-      const windDir = l.windDirDegT.trim() ? toNum(l.windDirDegT) : defaultWindDir;
-      const windSpd = l.windSpdKt.trim() ? toNum(l.windSpdKt) : defaultWindSpd;
-
-      const vDeg = l.varDeg.trim() ? toNum(l.varDeg) : defaultVarDeg;
-      const vDir = l.varDeg.trim() ? l.varDir : defaultVarDir;
-
+      const vDeg = l.varDeg.trim() ? toNum(l.varDeg) : toNum(tripVarDeg);
+      const vDir = l.varDeg.trim() ? l.varDir : tripVarDir;
       const dev = l.devDeg.trim() ? toNum(l.devDeg) : 0;
 
-      const { wca, th, gs } = computeWind(tc, windDir, windSpd, tas);
-
+      const { wca, th, gs } = computeWind(tc, windDir, windSpd, cruiseTas);
       const mh = applyVariation(th, vDeg, vDir);
       const ch = applyDeviation(mh, dev);
 
       const eteMin = gs > 0 && dist > 0 ? (dist / gs) * 60 : 0;
       const fuelGal = gph > 0 ? (eteMin / 60) * gph : 0;
 
-
-
       return {
         ...l,
         tc,
         dist,
-        alt,
         windDir,
         windSpd,
-        tas,
-        gph,
         wca,
         th,
         mh,
@@ -230,238 +219,410 @@ export default function NavlogPage() {
     const totalMin = rows.reduce((a, r) => a + (r.eteMin || 0), 0);
     const totalFuel = rows.reduce((a, r) => a + (r.fuelGal || 0), 0);
 
-    return { rows, totalDist, totalMin, totalFuel, tas, gph };
-  }, [legs, tripAltFt, tripWindDirDegT, tripWindSpdKt, tripVarDeg, tripVarDir, perf.tasKt, perf.gph]);
+    return { rows, totalDist, totalMin, totalFuel };
+  }, [legs, tas, fuelBurn, tripWindDir, tripWindSpd, tripVarDeg, tripVarDir]);
 
-        const cellInputStyle: CSSProperties = {
-        height: 34,
-        padding: '6px 8px',
-        borderRadius: 8,
-        border: '1px solid #ccc',
-        fontSize: 12,
-        };
-
-  const gridBorder = '1.5px solid #111';
-  const thinBorder = '1px solid #111';
-
-  const thBase: CSSProperties = {
-    border: gridBorder,
-    padding: '6px 6px',
-    fontSize: 11,
-    fontWeight: 900,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    background: '#f3f4f6',
-    whiteSpace: 'nowrap',
-  };
-
-  const thGroup: CSSProperties = {
-    ...thBase,
-    background: '#e5e7eb',
-    textAlign: 'center',
-    fontSize: 11,
-  };
-
-  const tdBase: CSSProperties = {
-    border: thinBorder,
-    padding: 6,
-    fontSize: 12,
-    verticalAlign: 'middle',
-    background: '#fff',
-  };
-
-  const tdCenter: CSSProperties = { ...tdBase, textAlign: 'center' };
-  const tdRight: CSSProperties = { ...tdBase, textAlign: 'right' };
+  // Auto-update flight plan ETE
+  useMemo(() => {
+    updateFlightPlan({ ete: formatTime(computed.totalMin) });
+  }, [computed.totalMin]);
 
   const cellInput: CSSProperties = {
-    ...cellInputStyle,
-    height: 30,
+    width: '100%',
+    height: 28,
     padding: '4px 6px',
-    borderRadius: 6,
-    border: '1px solid #111',
-    fontSize: 12,
+    borderRadius: 4,
+    border: `1px solid ${COLORS.border}`,
+    fontSize: 11,
+    fontFamily: 'monospace',
   };
-
 
   return (
     <div>
-      <h2>Navlog</h2>
-      <p style={{ marginTop: 4, opacity: 0.8 }}>
-        Manual entry navlog. Enter TC + distance per leg. We compute WCA, TH, MH, CH, GS, ETE, and fuel.
-      </p>
+      {/* Header */}
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontSize: 28, fontWeight: 900, color: COLORS.primary, marginBottom: 8 }}>
+          VFR Navigation Log
+        </h2>
+        <p style={{ color: COLORS.textLight, marginBottom: 16 }}>
+          Complete cross-country flight planning with wind corrections, headings, and fuel calculations
+        </p>
 
-      <div className="no-print" style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-        <button onClick={() => window.print()}>Print / Save PDF</button>
-        <button onClick={addLeg}>Add leg</button>
+        {/* Action Buttons */}
+        <div className="no-print" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <button
+            onClick={() => window.print()}
+            style={{
+              padding: '10px 20px',
+              background: COLORS.primary,
+              color: '#fff',
+              border: 'none',
+              borderRadius: 8,
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontSize: 14,
+            }}
+          >
+            🖨️ Print / Save PDF
+          </button>
+          <button
+            onClick={addLeg}
+            style={{
+              padding: '10px 20px',
+              background: '#fff',
+              color: COLORS.primary,
+              border: `2px solid ${COLORS.primary}`,
+              borderRadius: 8,
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontSize: 14,
+            }}
+          >
+            + Add Leg
+          </button>
+        </div>
       </div>
 
-      {/* Trip setup */}
+      {/* Flight Plan Information */}
       <div
         className="no-print"
         style={{
-          border: '1px solid #ddd',
+          background: '#fff',
+          border: `1px solid ${COLORS.border}`,
           borderRadius: 12,
-          padding: 12,
-          marginTop: 12,
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: 12,
-          alignItems: 'end',
-          overflow: 'hidden',
+          padding: 20,
+          marginBottom: 20,
         }}
       >
-        <div>
-          <label>RPM</label>
-          <select
-            value={rpm}
-            onChange={(e) => setRpm(Number(e.target.value))}
-            style={{ width: '100%', padding: 8, borderRadius: 8 }}
-          >
-            {[2200, 2300, 2400, 2500].map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
-        </div>
+        <h3 style={{ fontSize: 16, fontWeight: 800, color: COLORS.text, marginBottom: 16 }}>
+          Flight Plan Information
+        </h3>
 
-        <div>
-          <label>Trip altitude (ft)</label>
-          <input
-            type="number"
-            step="100"
-            value={tripAltFt}
-            onChange={(e) => setTripAltFt(e.target.value)}
-            style={{ width: '100%', padding: 8, borderRadius: 8 }}
-          />
-        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, marginBottom: 4, display: 'block' }}>
+              Aircraft Type
+            </label>
+            <input
+              value={flightPlan.aircraftType}
+              onChange={(e) => updateFlightPlan({ aircraftType: e.target.value })}
+              style={{ width: '100%', padding: 8, borderRadius: 8, border: `1px solid ${COLORS.border}` }}
+              placeholder="C172S"
+            />
+          </div>
 
-        <div>
-          <label>Wind dir (°T)</label>
-          <input
-            type="number"
-            step="1"
-            value={tripWindDirDegT}
-            onChange={(e) => setTripWindDirDegT(e.target.value)}
-            style={{ width: '100%', padding: 8, borderRadius: 8 }}
-          />
-        </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, marginBottom: 4, display: 'block' }}>
+              Aircraft Ident
+            </label>
+            <input
+              value={flightPlan.aircraftIdent}
+              onChange={(e) => updateFlightPlan({ aircraftIdent: e.target.value.toUpperCase() })}
+              style={{ width: '100%', padding: 8, borderRadius: 8, border: `1px solid ${COLORS.border}` }}
+              placeholder="N12345"
+            />
+          </div>
 
-        <div>
-          <label>Wind speed (kt)</label>
-          <input
-            type="number"
-            step="0.1"
-            value={tripWindSpdKt}
-            onChange={(e) => setTripWindSpdKt(e.target.value)}
-            style={{ width: '100%', padding: 8, borderRadius: 8 }}
-          />
-        </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, marginBottom: 4, display: 'block' }}>
+              Pilot Name
+            </label>
+            <input
+              value={flightPlan.pilotName}
+              onChange={(e) => updateFlightPlan({ pilotName: e.target.value })}
+              style={{ width: '100%', padding: 8, borderRadius: 8, border: `1px solid ${COLORS.border}` }}
+              placeholder="Your Name"
+            />
+          </div>
 
-        <div>
-          <label>Variation</label>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, marginBottom: 4, display: 'block' }}>
+              Departure
+            </label>
+            <input
+              value={flightPlan.departure}
+              onChange={(e) => updateFlightPlan({ departure: e.target.value.toUpperCase() })}
+              style={{ width: '100%', padding: 8, borderRadius: 8, border: `1px solid ${COLORS.border}` }}
+              placeholder="KDPA"
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, marginBottom: 4, display: 'block' }}>
+              Destination
+            </label>
+            <input
+              value={flightPlan.destination}
+              onChange={(e) => updateFlightPlan({ destination: e.target.value.toUpperCase() })}
+              style={{ width: '100%', padding: 8, borderRadius: 8, border: `1px solid ${COLORS.border}` }}
+              placeholder="KORD"
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, marginBottom: 4, display: 'block' }}>
+              Route
+            </label>
+            <input
+              value={flightPlan.route}
+              onChange={(e) => updateFlightPlan({ route: e.target.value.toUpperCase() })}
+              style={{ width: '100%', padding: 8, borderRadius: 8, border: `1px solid ${COLORS.border}` }}
+              placeholder="Direct"
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, marginBottom: 4, display: 'block' }}>
+              Cruise Alt (ft)
+            </label>
+            <input
+              value={flightPlan.cruiseAlt}
+              onChange={(e) => updateFlightPlan({ cruiseAlt: e.target.value })}
+              style={{ width: '100%', padding: 8, borderRadius: 8, border: `1px solid ${COLORS.border}` }}
+              placeholder="4500"
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, marginBottom: 4, display: 'block' }}>
+              Departure Time (Local)
+            </label>
+            <input
+              type="time"
+              value={flightPlan.departureTime}
+              onChange={(e) => updateFlightPlan({ departureTime: e.target.value })}
+              style={{ width: '100%', padding: 8, borderRadius: 8, border: `1px solid ${COLORS.border}` }}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, marginBottom: 4, display: 'block' }}>
+              ETE (calculated)
+            </label>
+            <input
+              value={flightPlan.ete}
+              disabled
+              style={{
+                width: '100%',
+                padding: 8,
+                borderRadius: 8,
+                border: `1px solid ${COLORS.border}`,
+                background: '#f3f4f6',
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, marginBottom: 4, display: 'block' }}>
+              Fuel Onboard (gal)
+            </label>
             <input
               type="number"
               step="0.1"
-              value={tripVarDeg}
-              onChange={(e) => setTripVarDeg(e.target.value)}
-              style={{ width: '60%', padding: 8, borderRadius: 8 }}
+              value={flightPlan.fuelOnboard}
+              onChange={(e) => updateFlightPlan({ fuelOnboard: e.target.value })}
+              style={{ width: '100%', padding: 8, borderRadius: 8, border: `1px solid ${COLORS.border}` }}
+              placeholder="40.0"
             />
-            <select
-              value={tripVarDir}
-              onChange={(e) => setTripVarDir(e.target.value as VarDir)}
-              style={{ width: '40%', padding: 8, borderRadius: 8 }}
-            >
-              <option value="E">E</option>
-              <option value="W">W</option>
-            </select>
           </div>
-        </div>
-
-        <div style={{ gridColumn: '1 / -1', fontSize: 12, opacity: 0.8 }}>
-          Performance (v1 presets): <b>TAS {computed.tas.toFixed(0)} kt</b> @ <b>{rpm} RPM</b> — Fuel burn <b>{computed.gph.toFixed(1)} GPH</b>
         </div>
       </div>
 
-            {/* Navlog table */}
-      <div style={{ marginTop: 14, border: '1px solid #ddd', borderRadius: 12, overflow: 'hidden' }}>
-        {/* Header strip */}
+      {/* Performance & Wind Defaults */}
+      <div
+        className="no-print"
+        style={{
+          background: '#fff',
+          border: `1px solid ${COLORS.border}`,
+          borderRadius: 12,
+          padding: 20,
+          marginBottom: 20,
+        }}
+      >
+        <h3 style={{ fontSize: 16, fontWeight: 800, color: COLORS.text, marginBottom: 16 }}>
+          Performance & Wind (Defaults)
+        </h3>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, marginBottom: 4, display: 'block' }}>
+              True Airspeed (kt)
+            </label>
+            <input
+              type="number"
+              step="1"
+              value={tas}
+              onChange={(e) => setTas(e.target.value)}
+              style={{ width: '100%', padding: 8, borderRadius: 8, border: `1px solid ${COLORS.border}` }}
+              placeholder="110"
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, marginBottom: 4, display: 'block' }}>
+              Fuel Burn (GPH)
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              value={fuelBurn}
+              onChange={(e) => setFuelBurn(e.target.value)}
+              style={{ width: '100%', padding: 8, borderRadius: 8, border: `1px solid ${COLORS.border}` }}
+              placeholder="8.5"
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, marginBottom: 4, display: 'block' }}>
+              Wind Dir (°T)
+            </label>
+            <input
+              type="number"
+              step="1"
+              value={tripWindDir}
+              onChange={(e) => setTripWindDir(e.target.value)}
+              style={{ width: '100%', padding: 8, borderRadius: 8, border: `1px solid ${COLORS.border}` }}
+              placeholder="270"
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, marginBottom: 4, display: 'block' }}>
+              Wind Speed (kt)
+            </label>
+            <input
+              type="number"
+              step="1"
+              value={tripWindSpd}
+              onChange={(e) => setTripWindSpd(e.target.value)}
+              style={{ width: '100%', padding: 8, borderRadius: 8, border: `1px solid ${COLORS.border}` }}
+              placeholder="15"
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: COLORS.textLight, marginBottom: 4, display: 'block' }}>
+              Variation
+            </label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="number"
+                step="0.1"
+                value={tripVarDeg}
+                onChange={(e) => setTripVarDeg(e.target.value)}
+                style={{ flex: 1, padding: 8, borderRadius: 8, border: `1px solid ${COLORS.border}` }}
+                placeholder="2"
+              />
+              <select
+                value={tripVarDir}
+                onChange={(e) => setTripVarDir(e.target.value as VarDir)}
+                style={{ width: 60, padding: 8, borderRadius: 8, border: `1px solid ${COLORS.border}` }}
+              >
+                <option value="E">E</option>
+                <option value="W">W</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation Log Table */}
+      <div
+        style={{
+          background: '#fff',
+          border: `2px solid ${COLORS.primary}`,
+          borderRadius: 12,
+          overflow: 'hidden',
+          marginBottom: 20,
+        }}
+      >
+        {/* Header Banner */}
         <div
           style={{
-            padding: 14,
-            borderBottom: '2px solid #111',
+            padding: 16,
+            background: `linear-gradient(135deg, ${COLORS.primary}, ${COLORS.primaryDark})`,
+            color: '#fff',
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'baseline',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 12,
           }}
         >
-          <div style={{ fontWeight: 900, letterSpacing: 1 }}>VFR NAVIGATION LOG</div>
-          <div style={{ fontSize: 12, opacity: 0.85 }}>
-            TAS <b>{computed.tas.toFixed(0)} kt</b> • Fuel <b>{computed.gph.toFixed(1)} GPH</b> • RPM <b>{rpm}</b>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: 1 }}>VFR NAVIGATION LOG</div>
+            <div style={{ fontSize: 12, opacity: 0.9, marginTop: 2 }}>
+              {flightPlan.aircraftIdent} • {flightPlan.departure} → {flightPlan.destination}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right', fontSize: 12 }}>
+            <div>
+              <strong>TAS:</strong> {tas} kt • <strong>Fuel:</strong> {fuelBurn} GPH
+            </div>
+            <div style={{ marginTop: 2, opacity: 0.9 }}>
+              <strong>Total:</strong> {computed.totalDist.toFixed(1)} nm • {formatTime(computed.totalMin)} •{' '}
+              {computed.totalFuel.toFixed(1)} gal
+            </div>
           </div>
         </div>
 
+        {/* Table */}
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: 1200, borderCollapse: 'collapse', fontSize: 12 }}>
-            <colgroup>
-              <col style={{ width: 90 }} />
-              <col style={{ width: 90 }} />
-              <col style={{ width: 70 }} />
-              <col style={{ width: 70 }} />
-              <col style={{ width: 80 }} />
-              <col style={{ width: 70 }} />
-              <col style={{ width: 70 }} />
-              <col style={{ width: 120 }} />
-              <col style={{ width: 70 }} />
-              <col style={{ width: 70 }} />
-              <col style={{ width: 70 }} />
-              <col style={{ width: 70 }} />
-              <col style={{ width: 70 }} />
-              <col style={{ width: 70 }} />
-              <col style={{ width: 70 }} />
-              <col style={{ width: 60 }} />
-            </colgroup>
-
+          <table style={{ width: '100%', minWidth: 1400, borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
-              <tr>
-                <th colSpan={2} style={thGroup}>ROUTE</th>
-                <th colSpan={3} style={thGroup}>COURSE / DISTANCE</th>
-                <th colSpan={2} style={thGroup}>WIND (TRUE)</th>
-                <th colSpan={2} style={thGroup}>MAG</th>
-                <th colSpan={4} style={thGroup}>HEADINGS</th>
-                <th style={thGroup}>GS</th>
-                <th style={thGroup}>ETE</th>
-                <th style={{ ...thGroup, borderRight: 'none' }}>FUEL</th>
-              </tr>
-
-              <tr>
-                <th style={thBase}>FROM</th>
-                <th style={thBase}>TO</th>
-
-                <th style={thBase}>NM</th>
-                <th style={thBase}>TC °T</th>
-                <th style={thBase}>ALT FT</th>
-
-                <th style={thBase}>DIR °T</th>
-                <th style={thBase}>KT</th>
-
-                <th style={thBase}>VAR</th>
-                <th style={thBase}>DEV</th>
-
-                <th style={thBase}>WCA</th>
-                <th style={thBase}>TH °T</th>
-                <th style={thBase}>MH °M</th>
-                <th style={thBase}>CH °C</th>
-
-                <th style={thBase}></th>
-                <th style={thBase}></th>
-                <th style={{ ...thBase, borderRight: 'none' }}></th>
+              <tr style={{ background: '#f8fafc' }}>
+                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, textAlign: 'left' }}>
+                  CKPT
+                </th>
+                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700 }}>FROM</th>
+                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700 }}>TO</th>
+                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700 }}>ALT</th>
+                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700 }}>TC</th>
+                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700 }}>DIST</th>
+                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700 }}>WND°</th>
+                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700 }}>WND kt</th>
+                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700 }}>VAR</th>
+                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700 }}>DEV</th>
+                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#eff6ff' }}>
+                  WCA
+                </th>
+                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#eff6ff' }}>
+                  TH
+                </th>
+                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#eff6ff' }}>
+                  MH
+                </th>
+                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#eff6ff' }}>
+                  CH
+                </th>
+                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#fef3c7' }}>
+                  GS
+                </th>
+                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#fef3c7' }}>
+                  ETE
+                </th>
+                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#fef3c7' }}>
+                  FUEL
+                </th>
+                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700 }}>REMARKS</th>
+                <th className="no-print" style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}` }}></th>
               </tr>
             </thead>
 
             <tbody>
-              {computed.rows.map((r) => (
-                <tr key={r.id}>
-                  <td style={tdBase}>
+              {computed.rows.map((r, idx) => (
+                <tr key={r.id} style={{ background: idx % 2 === 0 ? '#fff' : '#f9fafb' }}>
+                  <td style={{ padding: 6, borderBottom: `1px solid ${COLORS.border}` }}>
+                    <input
+                      className="no-print"
+                      value={r.checkpoint}
+                      onChange={(e) => updateLeg(r.id, { checkpoint: e.target.value.toUpperCase() })}
+                      style={{ ...cellInput, fontWeight: 700 }}
+                      placeholder="WPT"
+                    />
+                    <span className="print-only" style={{ fontWeight: 700 }}>{r.checkpoint}</span>
+                  </td>
+                  <td style={{ padding: 6, borderBottom: `1px solid ${COLORS.border}` }}>
                     <input
                       className="no-print"
                       value={r.from}
@@ -470,8 +631,7 @@ export default function NavlogPage() {
                     />
                     <span className="print-only">{r.from}</span>
                   </td>
-
-                  <td style={tdBase}>
+                  <td style={{ padding: 6, borderBottom: `1px solid ${COLORS.border}` }}>
                     <input
                       className="no-print"
                       value={r.to}
@@ -480,8 +640,28 @@ export default function NavlogPage() {
                     />
                     <span className="print-only">{r.to}</span>
                   </td>
-
-                  <td style={tdRight}>
+                  <td style={{ padding: 6, borderBottom: `1px solid ${COLORS.border}` }}>
+                    <input
+                      className="no-print"
+                      type="number"
+                      value={r.altitude}
+                      onChange={(e) => updateLeg(r.id, { altitude: e.target.value })}
+                      style={cellInput}
+                      placeholder={flightPlan.cruiseAlt}
+                    />
+                    <span className="print-only">{r.altitude || flightPlan.cruiseAlt}</span>
+                  </td>
+                  <td style={{ padding: 6, borderBottom: `1px solid ${COLORS.border}` }}>
+                    <input
+                      className="no-print"
+                      type="number"
+                      value={r.course}
+                      onChange={(e) => updateLeg(r.id, { course: e.target.value })}
+                      style={cellInput}
+                    />
+                    <span className="print-only">{r.course}</span>
+                  </td>
+                  <td style={{ padding: 6, borderBottom: `1px solid ${COLORS.border}` }}>
                     <input
                       className="no-print"
                       type="number"
@@ -492,72 +672,42 @@ export default function NavlogPage() {
                     />
                     <span className="print-only">{r.distNm}</span>
                   </td>
-
-                  <td style={tdRight}>
+                  <td style={{ padding: 6, borderBottom: `1px solid ${COLORS.border}` }}>
                     <input
                       className="no-print"
                       type="number"
-                      step="0.1"
-                      value={r.tcDegT}
-                      onChange={(e) => updateLeg(r.id, { tcDegT: e.target.value })}
+                      value={r.windDir}
+                      onChange={(e) => updateLeg(r.id, { windDir: e.target.value })}
                       style={cellInput}
+                      placeholder={tripWindDir}
                     />
-                    <span className="print-only">{r.tcDegT}</span>
+                    <span className="print-only">{r.windDir || tripWindDir}</span>
                   </td>
-
-                  <td style={tdRight}>
+                  <td style={{ padding: 6, borderBottom: `1px solid ${COLORS.border}` }}>
                     <input
                       className="no-print"
                       type="number"
-                      step="100"
-                      value={r.altFt}
-                      onChange={(e) => updateLeg(r.id, { altFt: e.target.value })}
+                      value={r.windSpd}
+                      onChange={(e) => updateLeg(r.id, { windSpd: e.target.value })}
                       style={cellInput}
-                      placeholder="(trip)"
+                      placeholder={tripWindSpd}
                     />
-                    <span className="print-only">{r.altFt || String(toNum(tripAltFt) || '')}</span>
+                    <span className="print-only">{r.windSpd || tripWindSpd}</span>
                   </td>
-
-                  <td style={tdRight}>
-                    <input
-                      className="no-print"
-                      type="number"
-                      step="1"
-                      value={r.windDirDegT}
-                      onChange={(e) => updateLeg(r.id, { windDirDegT: e.target.value })}
-                      style={cellInput}
-                      placeholder="(trip)"
-                    />
-                    <span className="print-only">{r.windDirDegT || tripWindDirDegT}</span>
-                  </td>
-
-                  <td style={tdRight}>
-                    <input
-                      className="no-print"
-                      type="number"
-                      step="0.1"
-                      value={r.windSpdKt}
-                      onChange={(e) => updateLeg(r.id, { windSpdKt: e.target.value })}
-                      style={cellInput}
-                      placeholder="(trip)"
-                    />
-                    <span className="print-only">{r.windSpdKt || tripWindSpdKt}</span>
-                  </td>
-
-                  <td style={tdCenter}>
-                    <div className="no-print" style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                  <td style={{ padding: 6, borderBottom: `1px solid ${COLORS.border}` }}>
+                    <div className="no-print" style={{ display: 'flex', gap: 4 }}>
                       <input
                         type="number"
                         step="0.1"
                         value={r.varDeg}
                         onChange={(e) => updateLeg(r.id, { varDeg: e.target.value })}
-                        style={{ ...cellInput, width: 60, textAlign: 'right' }}
-                        placeholder="(trip)"
+                        style={{ ...cellInput, width: 40 }}
+                        placeholder={tripVarDeg}
                       />
                       <select
                         value={r.varDir}
                         onChange={(e) => updateLeg(r.id, { varDir: e.target.value as VarDir })}
-                        style={{ ...cellInput, width: 52, padding: '4px 6px' }}
+                        style={{ ...cellInput, width: 35, padding: 2 }}
                       >
                         <option value="E">E</option>
                         <option value="W">W</option>
@@ -567,8 +717,7 @@ export default function NavlogPage() {
                       {(r.varDeg || tripVarDeg) + (r.varDeg ? r.varDir : tripVarDir)}
                     </span>
                   </td>
-
-                  <td style={tdRight}>
+                  <td style={{ padding: 6, borderBottom: `1px solid ${COLORS.border}` }}>
                     <input
                       className="no-print"
                       type="number"
@@ -580,48 +729,166 @@ export default function NavlogPage() {
                     />
                     <span className="print-only">{r.devDeg || '0'}</span>
                   </td>
-
-                  <td style={tdRight}>{r.wca.toFixed(1)}</td>
-                  <td style={tdRight}>{r.th.toFixed(0)}</td>
-                  <td style={tdRight}>{r.mh.toFixed(0)}</td>
-                  <td style={tdRight}>{r.ch.toFixed(0)}</td>
-
-                  <td style={tdRight}>{r.gs.toFixed(0)}</td>
-                  <td style={tdRight}>{r.eteMin.toFixed(0)}</td>
-                  <td style={{ ...tdRight, borderRight: 'none' }}>{r.fuelGal.toFixed(1)}</td>
+                  <td style={{ padding: 6, borderBottom: `1px solid ${COLORS.border}`, textAlign: 'right', background: '#eff6ff' }}>
+                    {r.wca.toFixed(1)}°
+                  </td>
+                  <td style={{ padding: 6, borderBottom: `1px solid ${COLORS.border}`, textAlign: 'right', background: '#eff6ff' }}>
+                    {r.th.toFixed(0)}°
+                  </td>
+                  <td style={{ padding: 6, borderBottom: `1px solid ${COLORS.border}`, textAlign: 'right', background: '#eff6ff' }}>
+                    {r.mh.toFixed(0)}°
+                  </td>
+                  <td style={{ padding: 6, borderBottom: `1px solid ${COLORS.border}`, textAlign: 'right', background: '#eff6ff' }}>
+                    {r.ch.toFixed(0)}°
+                  </td>
+                  <td style={{ padding: 6, borderBottom: `1px solid ${COLORS.border}`, textAlign: 'right', background: '#fef3c7' }}>
+                    {r.gs.toFixed(0)}
+                  </td>
+                  <td style={{ padding: 6, borderBottom: `1px solid ${COLORS.border}`, textAlign: 'right', background: '#fef3c7' }}>
+                    {r.eteMin.toFixed(0)}
+                  </td>
+                  <td style={{ padding: 6, borderBottom: `1px solid ${COLORS.border}`, textAlign: 'right', background: '#fef3c7' }}>
+                    {r.fuelGal.toFixed(1)}
+                  </td>
+                  <td style={{ padding: 6, borderBottom: `1px solid ${COLORS.border}` }}>
+                    <input
+                      className="no-print"
+                      value={r.remarks}
+                      onChange={(e) => updateLeg(r.id, { remarks: e.target.value })}
+                      style={{ ...cellInput, width: 120 }}
+                      placeholder="Notes..."
+                    />
+                    <span className="print-only">{r.remarks}</span>
+                  </td>
+                  <td className="no-print" style={{ padding: 6, borderBottom: `1px solid ${COLORS.border}` }}>
+                    {legs.length > 1 && (
+                      <button
+                        onClick={() => removeLeg(r.id)}
+                        style={{
+                          padding: '4px 8px',
+                          background: '#fee2e2',
+                          color: '#dc2626',
+                          border: 'none',
+                          borderRadius: 4,
+                          cursor: 'pointer',
+                          fontSize: 11,
+                          fontWeight: 700,
+                        }}
+                      >
+                        ×
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
 
             <tfoot>
-              <tr style={{ background: '#f9fafb' }}>
-                <td colSpan={2} style={{ padding: 10, fontWeight: 900, borderTop: '2px solid #111', borderRight: thinBorder }}>
-                  Totals
+              <tr style={{ background: `${COLORS.primary}15` }}>
+                <td colSpan={5} style={{ padding: 10, fontWeight: 900, borderTop: `2px solid ${COLORS.primary}` }}>
+                  TOTALS
                 </td>
-                <td style={{ padding: 10, fontWeight: 900, textAlign: 'right', borderTop: '2px solid #111', borderRight: thinBorder }}>
+                <td style={{ padding: 10, fontWeight: 900, textAlign: 'right', borderTop: `2px solid ${COLORS.primary}` }}>
                   {computed.totalDist.toFixed(1)}
                 </td>
-                <td colSpan={11} style={{ borderTop: '2px solid #111', borderRight: thinBorder }} />
-                <td style={{ padding: 10, fontWeight: 900, textAlign: 'right', borderTop: '2px solid #111', borderRight: thinBorder }}>
-                  {computed.totalMin.toFixed(0)}
+                <td colSpan={9} style={{ borderTop: `2px solid ${COLORS.primary}` }} />
+                <td style={{ padding: 10, fontWeight: 900, textAlign: 'right', borderTop: `2px solid ${COLORS.primary}`, background: '#fef3c7' }}>
+                  {formatTime(computed.totalMin)}
                 </td>
-                <td style={{ padding: 10, fontWeight: 900, textAlign: 'right', borderTop: '2px solid #111', borderRight: 'none' }}>
+                <td style={{ padding: 10, fontWeight: 900, textAlign: 'right', borderTop: `2px solid ${COLORS.primary}`, background: '#fef3c7' }}>
                   {computed.totalFuel.toFixed(1)}
                 </td>
+                <td colSpan={2} style={{ borderTop: `2px solid ${COLORS.primary}` }} />
               </tr>
             </tfoot>
           </table>
         </div>
 
-        <div style={{ padding: 12, fontSize: 12, opacity: 0.75, borderTop: '1px solid #ddd' }}>
-          Planning aid — verify winds, variation, deviation, and performance with charts/POH.
+        {/* Footer Info */}
+        <div
+          style={{
+            padding: 12,
+            background: '#f8fafc',
+            borderTop: `1px solid ${COLORS.border}`,
+            fontSize: 11,
+            color: COLORS.textLight,
+          }}
+        >
+          <div style={{ marginBottom: 4 }}>
+            <strong>Legend:</strong> CKPT = Checkpoint • TC = True Course • WCA = Wind Correction Angle • TH = True
+            Heading • MH = Magnetic Heading • CH = Compass Heading • GS = Ground Speed • ETE = Estimated Time Enroute
+          </div>
+          <div>
+            <strong>Note:</strong> Verify all headings, winds, and performance with current charts and POH. This is a
+            planning aid only.
+          </div>
         </div>
       </div>
 
-      {/* Page footnote */}
-      <div style={{ marginTop: 16, fontSize: 12, opacity: 0.75 }}>
-        Training aid — verify all results with charts/POH.
+      {/* Print-only Flight Plan Summary */}
+      <div className="print-only" style={{ marginTop: 20, pageBreakBefore: 'auto' }}>
+        <div style={{ border: '2px solid #000', borderRadius: 8, padding: 16 }}>
+          <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 16 }}>FLIGHT PLAN SUMMARY</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12 }}>
+            <div>
+              <strong>Aircraft Type:</strong> {flightPlan.aircraftType}
+            </div>
+            <div>
+              <strong>Aircraft Ident:</strong> {flightPlan.aircraftIdent}
+            </div>
+            <div>
+              <strong>Pilot:</strong> {flightPlan.pilotName}
+            </div>
+            <div>
+              <strong>Departure:</strong> {flightPlan.departure}
+            </div>
+            <div>
+              <strong>Destination:</strong> {flightPlan.destination}
+            </div>
+            <div>
+              <strong>Route:</strong> {flightPlan.route}
+            </div>
+            <div>
+              <strong>Cruise Altitude:</strong> {flightPlan.cruiseAlt} ft
+            </div>
+            <div>
+              <strong>Departure Time:</strong> {flightPlan.departureTime}
+            </div>
+            <div>
+              <strong>ETE:</strong> {flightPlan.ete}
+            </div>
+            <div>
+              <strong>Fuel Onboard:</strong> {flightPlan.fuelOnboard} gal
+            </div>
+            <div>
+              <strong>Total Distance:</strong> {computed.totalDist.toFixed(1)} nm
+            </div>
+            <div>
+              <strong>Total Fuel Required:</strong> {computed.totalFuel.toFixed(1)} gal
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* Print Styles */}
+      <style>{`
+        @media print {
+          .no-print {
+            display: none !important;
+          }
+          .print-only {
+            display: block !important;
+          }
+          @page {
+            margin: 0.5in;
+          }
+        }
+        @media screen {
+          .print-only {
+            display: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
