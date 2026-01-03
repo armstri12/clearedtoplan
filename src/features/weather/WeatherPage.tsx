@@ -336,7 +336,7 @@ function RunwayDiagram({
                 const parallelOffset = getParallelPriority(runway.labels.start, runway.labels.end) * 11;
 
                 const normalX = Math.cos(axis);
-                const normalY = -Math.sin(axis);
+                const normalY = Math.sin(axis);
 
                 const startX = center - dx + normalX * parallelOffset;
                 const startY = center + dy + normalY * parallelOffset;
