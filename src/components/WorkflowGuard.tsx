@@ -1,3 +1,34 @@
+/**
+ * Workflow Guard Component
+ *
+ * Enforces the step-by-step workflow for flight planning.
+ * Wraps protected route components to ensure users complete steps in order.
+ *
+ * Workflow Order:
+ * Aircraft → Weight & Balance → Performance → Weather → Navlog
+ *
+ * Features:
+ * - Checks if flight session exists
+ * - Verifies previous steps are completed
+ * - Redirects to appropriate step if access denied
+ * - Supports debug mode (?debug=true) to bypass enforcement
+ * - Shows helpful error messages when access is blocked
+ *
+ * Usage:
+ * ```tsx
+ * <Route path="/wb" element={
+ *   <WorkflowGuard step="weightBalance">
+ *     <WeightBalancePage />
+ *   </WorkflowGuard>
+ * } />
+ * ```
+ *
+ * Debug Mode:
+ * Add `?debug=true` to any URL to bypass workflow checks:
+ * http://localhost:5173/performance?debug=true
+ *
+ * @module WorkflowGuard
+ */
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useFlightSession, type FlightSession } from '../context/FlightSessionContext';
