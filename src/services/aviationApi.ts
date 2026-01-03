@@ -375,6 +375,23 @@ export async function getTaf(icao: string): Promise<TafData | null> {
     console.log('TAF raw response (first 500 chars):', rawText.substring(0, 500));
     console.log('TAF response length:', rawText.length, 'bytes');
 
+    if (rawText.length === 0) {
+      console.error('╔════════════════════════════════════════════════════════════╗');
+      console.error('║  TAF EMPTY RESPONSE - CLOUDFLARE WORKER ISSUE             ║');
+      console.error('╚════════════════════════════════════════════════════════════╝');
+      console.error('The Worker returned 0 bytes for TAF request');
+      console.error('URL:', url);
+      console.error('');
+      console.error('Possible causes:');
+      console.error('  1. Worker TAF endpoint is not properly configured');
+      console.error('  2. Worker cannot reach AviationWeather.gov TAF API');
+      console.error('  3. Check Worker logs at https://dash.cloudflare.com');
+      console.error('  4. METAR endpoint works, but TAF endpoint does not');
+      console.error('');
+      console.error('To fix: Check Worker code for TAF routing');
+      return null;
+    }
+
     let data: AvWxTafRaw[];
     try {
       data = JSON.parse(rawText);
@@ -489,6 +506,17 @@ export async function getNearestTaf(icao: string): Promise<TafData | null> {
       const rawText = await response.text();
       console.log('Raw API response (first 500 chars):', rawText.substring(0, 500));
       console.log('Response length:', rawText.length, 'bytes');
+
+      if (rawText.length === 0) {
+        console.error('╔════════════════════════════════════════════════════════════╗');
+        console.error('║  BBOX SEARCH EMPTY RESPONSE - WORKER ISSUE                ║');
+        console.error('╚════════════════════════════════════════════════════════════╝');
+        console.error('Worker returned 0 bytes for TAF bbox search');
+        console.error('URL:', tafUrl);
+        console.error('This confirms the TAF endpoint is not working in the Worker');
+        console.error('Trying next search radius...');
+        continue;
+      }
 
       let data: AvWxTafRaw[];
       try {
