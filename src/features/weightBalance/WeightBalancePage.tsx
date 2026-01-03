@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { localDb, type WBScenario } from '../../lib/storage/localDb';
 import type { AircraftProfile, Station } from '../aircraft/types';
 import { assistEnvelope, diagnoseEnvelope } from '../../lib/math/envelope';
@@ -408,6 +409,7 @@ function CgDiagram(props: {
 }
 
 export default function WeightBalancePage() {
+  const navigate = useNavigate();
   const { currentSession, updateWeightBalance, completeStep } = useFlightSession();
   const [profiles, setProfiles] = useState<AircraftProfile[]>([]);
   const [selectedId, setSelectedId] = useState<string>('');
@@ -499,6 +501,40 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
     const updated = scenarios.filter((s) => s.id !== id);
     setScenarios(updated);
     localDb.setWBScenarios(updated);
+  }
+
+  function continueToPerformance() {
+    if (!profile) {
+      alert('Please select an aircraft profile first');
+      return;
+    }
+
+    if (!calc) {
+      alert('Unable to calculate weight & balance');
+      return;
+    }
+
+    // Save W&B data to flight session
+    updateWeightBalance({
+      frontSeatsLb: frontLb,
+      rearSeatsLb: rearLb,
+      baggageLb: Object.values(baggageByStation).reduce((sum, w) => sum + w, 0),
+      startFuelGal: Number(startFuelGal),
+      taxiFuelGal: Number(taxiFuelGal),
+      plannedBurnGal: Number(plannedBurnGal),
+      rampWeight: calc.ramp.totalWeight,
+      rampCG: calc.ramp.cgIn,
+      takeoffWeight: calc.takeoff.totalWeight,
+      takeoffCG: calc.takeoff.cgIn,
+      landingWeight: calc.landing.totalWeight,
+      landingCG: calc.landing.cgIn,
+    });
+
+    // Mark W&B step as complete
+    completeStep('weightBalance');
+
+    // Navigate to performance
+    navigate('/performance');
   }
 
   const profile = useMemo(
@@ -718,42 +754,6 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
     stFuel,
     activeCategory,
     isNightFlight,
-  ]);
-
-  useEffect(() => {
-    if (!currentSession || !profile || !calc) return;
-
-    updateWeightBalance({
-      profileId: profile.id,
-      frontSeatsLb: frontLb,
-      rearSeatsLb: rearLb,
-      baggageLb: Object.values(baggageByStation).reduce((sum, w) => sum + w, 0),
-      startFuelGal: Number(startFuelGal),
-      taxiFuelGal: Number(taxiFuelGal),
-      plannedBurnGal: Number(plannedBurnGal),
-      rampWeight: calc.ramp.totalWeight,
-      rampCG: calc.ramp.cgIn,
-      takeoffWeight: calc.takeoff.totalWeight,
-      takeoffCG: calc.takeoff.cgIn,
-      landingWeight: calc.landing.totalWeight,
-      landingCG: calc.landing.cgIn,
-    });
-
-    if (!currentSession.completed.weightBalance) {
-      completeStep('weightBalance');
-    }
-  }, [
-    baggageByStation,
-    calc,
-    completeStep,
-    currentSession,
-    frontLb,
-    plannedBurnGal,
-    profile,
-    rearLb,
-    startFuelGal,
-    taxiFuelGal,
-    updateWeightBalance,
   ]);
 
   if (!profile) {
@@ -1260,6 +1260,49 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
         </tbody>
       </table>
 
+      {/* Continue Button */}
+      <div
+        style={{
+          marginTop: 32,
+          paddingTop: 24,
+          borderTop: '2px solid #e2e8f0',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        <div style={{ fontSize: 14, color: '#64748b' }}>
+          {currentSession && (
+            <div>
+              Flight Plan: <strong>{currentSession.name}</strong>
+            </div>
+          )}
+        </div>
+        <button
+          onClick={continueToPerformance}
+          style={{
+            padding: '12px 32px',
+            background: '#2563eb',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 8,
+            fontWeight: 700,
+            fontSize: 16,
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#1e40af';
+            e.currentTarget.style.transform = 'translateY(-1px)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#2563eb';
+            e.currentTarget.style.transform = 'translateY(0)';
+          }}
+        >
+          Continue to Performance →
+        </button>
+      </div>
     </div>
   );
 }
