@@ -58,16 +58,27 @@ export default function WeatherPage() {
     setSelectedIndex(airports.length);
     setIcaoInput('');
 
+    console.log(`=== FETCHING WEATHER FOR ${icao} ===`);
+
     const metarData = await getMetar(icao);
+    console.log('METAR data received:', metarData);
+
     let tafData = await getTaf(icao);
+    console.log('TAF data received:', tafData);
+
     let tafIsNearby = false;
 
     if (!tafData && metarData) {
+      console.log('No TAF available, searching for nearest TAF...');
       tafData = await getNearestTaf(icao);
+      console.log('Nearest TAF result:', tafData);
       if (tafData) {
         tafIsNearby = true;
       }
     }
+
+    console.log('Final TAF data to be displayed:', tafData);
+    console.log('TAF is from nearby airport:', tafIsNearby);
 
     setAirports(prev => prev.map((a, i) =>
       i === airports.length ? {
@@ -447,19 +458,28 @@ export default function WeatherPage() {
                   {/* Hourly Forecast Table */}
                   {selected.taf.raw_text && (() => {
                     try {
+                      console.log('=== TAF PARSING DEBUG ===');
+                      console.log('Raw TAF text:', selected.taf.raw_text);
+                      console.log('TAF timestamp from API:', selected.taf.timestamp);
+
                       // Parse issue time from raw TAF (format: TAF ICAO DDHHmmZ ...)
                       let issued = new Date();
 
                       if (selected.taf.timestamp?.issued) {
                         issued = new Date(selected.taf.timestamp.issued);
+                        console.log('Using timestamp.issued from API:', selected.taf.timestamp.issued);
+                        console.log('Parsed as Date:', issued);
                       } else {
+                        console.log('No timestamp.issued from API, extracting from raw text...');
                         // Try to extract issue time from raw TAF text
                         // Format: TAF KENW 031120Z means issued on day 03 at 1120Z
                         const issueMatch = selected.taf.raw_text.match(/TAF\s+\w{4}\s+(\d{2})(\d{2})(\d{2})Z/);
+                        console.log('Regex match result:', issueMatch);
                         if (issueMatch) {
                           const day = parseInt(issueMatch[1]);
                           const hour = parseInt(issueMatch[2]);
                           const minute = parseInt(issueMatch[3]);
+                          console.log('Extracted - Day:', day, 'Hour:', hour, 'Minute:', minute);
 
                           // Use current month/year but set the day/hour/minute from TAF
                           const now = new Date();
@@ -470,10 +490,20 @@ export default function WeatherPage() {
                             hour,
                             minute
                           ));
+                          console.log('Constructed issued date:', issued);
+                        } else {
+                          console.warn('Could not extract issue time from TAF, using current time');
                         }
                       }
 
+                      console.log('Final issued date for parsing:', issued);
+                      console.log('Calling parseTAFAsForecast with options:', { issued });
+
                       const report = parseTAFAsForecast(selected.taf.raw_text, { issued });
+
+                      console.log('parseTAFAsForecast result:', report);
+                      console.log('Report start:', report.start);
+                      console.log('Report end:', report.end);
 
                       if (!report.start || !report.end) return null;
 
@@ -597,10 +627,20 @@ export default function WeatherPage() {
                         </div>
                       );
                     } catch (error) {
-                      console.error('Error parsing TAF:', error);
+                      console.error('=== TAF PARSING ERROR ===');
+                      console.error('Error object:', error);
+                      console.error('Error message:', error instanceof Error ? error.message : String(error));
+                      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+                      console.error('TAF text that failed:', selected.taf.raw_text);
                       return (
                         <div style={{ padding: 12, borderRadius: 8, background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', marginBottom: 16 }}>
-                          Unable to parse TAF for hourly forecast. See raw TAF below.
+                          <div style={{ fontWeight: 700, marginBottom: 8 }}>Unable to parse TAF for hourly forecast</div>
+                          <div style={{ fontSize: 11, fontFamily: 'monospace', opacity: 0.8 }}>
+                            Error: {error instanceof Error ? error.message : String(error)}
+                          </div>
+                          <div style={{ fontSize: 11, marginTop: 8 }}>
+                            Check browser console for details. Raw TAF shown below.
+                          </div>
                         </div>
                       );
                     }
