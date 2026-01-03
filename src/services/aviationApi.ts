@@ -1,12 +1,37 @@
 /**
  * Aviation Weather API Service
- * Integrates with AviationWeather.gov (NOAA) for real-time METAR and TAF data
- * Uses Cloudflare Worker proxy to bypass CORS restrictions
  *
- * Documentation: https://aviationweather.gov/data/api/
+ * This module provides integration with AviationWeather.gov (NOAA) for real-time aviation weather data.
+ * It fetches METAR (surface observations) and TAF (terminal forecasts) for airports worldwide.
+ *
+ * Key Features:
+ * - Fetches current METAR observations with decoded data (temperature, wind, pressure, etc.)
+ * - Retrieves TAF forecasts with hourly breakdowns
+ * - Automatically finds nearest TAF when primary airport doesn't have one
+ * - Normalizes API responses to consistent format
+ * - Handles pressure unit conversions (mb/hPa to inHg)
+ * - Uses Cloudflare Worker proxy to bypass CORS restrictions
+ *
+ * Architecture:
+ * 1. Raw API types (AvWxMetarRaw, AvWxTafRaw) - direct from AviationWeather.gov
+ * 2. Normalized types (MetarData, TafData) - consistent interface for UI
+ * 3. Helper functions for unit conversions and data normalization
+ * 4. Public API functions (getMetar, getTaf, getNearestTaf)
+ *
+ * Important Fix (2026-01-03):
+ * - The API sometimes returns altimeter in mb instead of inHg despite field docs
+ * - convertPressure() now detects values >100 and converts mb→inHg automatically
+ * - Example: 1016.7 mb is converted to 30.02 inHg
+ *
+ * External Documentation: https://aviationweather.gov/data/api/
+ *
+ * @module aviationApi
  */
 
-// AviationWeather.gov raw response types
+/**
+ * Raw METAR response type from AviationWeather.gov API
+ * This represents the direct API response before normalization
+ */
 type AvWxMetarRaw = {
   icaoId: string;
   receiptTime?: string;
@@ -33,6 +58,10 @@ type AvWxMetarRaw = {
   }>;
 };
 
+/**
+ * Raw TAF (Terminal Aerodrome Forecast) response type from AviationWeather.gov API
+ * Contains forecast periods and predicted conditions
+ */
 type AvWxTafRaw = {
   icaoId: string;
   issueTime?: string;
@@ -60,7 +89,24 @@ type AvWxTafRaw = {
   }>;
 };
 
-// Normalized types for our UI (similar interface to CheckWX for compatibility)
+/**
+ * Normalized METAR data type for application use
+ * Provides a consistent interface regardless of API changes
+ * Compatible with CheckWX format for potential future migration
+ *
+ * @property icao - 4-letter ICAO airport code (e.g., "KJFK")
+ * @property name - Airport name (e.g., "John F Kennedy International Airport")
+ * @property observed - Observation timestamp in ISO format
+ * @property raw_text - Raw METAR text as transmitted
+ * @property barometer - Pressure readings in multiple units (hg, hpa, kpa, mb)
+ * @property temperature - Temperature in Celsius and Fahrenheit
+ * @property dewpoint - Dewpoint in Celsius and Fahrenheit
+ * @property wind - Wind direction (degrees), speed and gust (knots)
+ * @property visibility - Visibility in statute miles
+ * @property clouds - Cloud layer information (coverage and altitude)
+ * @property flight_category - VFR, MVFR, IFR, or LIFR
+ * @property elevation - Airport elevation in feet and meters
+ */
 export type MetarData = {
   icao: string;
   name?: string;
@@ -101,6 +147,15 @@ export type MetarData = {
   };
 };
 
+/**
+ * Normalized TAF (Terminal Aerodrome Forecast) data type
+ *
+ * @property icao - 4-letter ICAO airport code
+ * @property raw_text - Raw TAF text as transmitted
+ * @property name - Airport name
+ * @property timestamp - Issue and bulletin times
+ * @property forecast - Array of forecast periods with conditions
+ */
 export type TafData = {
   icao: string;
   raw_text: string;
@@ -124,20 +179,45 @@ export type TafData = {
   }>;
 };
 
-// Configuration
+// Configuration - Cloudflare Worker URL for proxying API requests
 const WORKER_URL = import.meta.env.VITE_WEATHER_API_URL || '';
 
-// Helper to convert Celsius to Fahrenheit
+/**
+ * Converts temperature from Celsius to Fahrenheit
+ * @param c - Temperature in Celsius
+ * @returns Temperature in Fahrenheit, rounded to 1 decimal place
+ */
 function celsiusToFahrenheit(c: number): number {
   return Math.round((c * 9 / 5 + 32) * 10) / 10;
 }
 
-// Helper to convert meters to feet
+/**
+ * Converts distance from meters to feet
+ * @param m - Distance in meters
+ * @returns Distance in feet, rounded to nearest integer
+ */
 function metersToFeet(m: number): number {
   return Math.round(m * 3.28084);
 }
 
-// Helper to convert mb to various pressure units
+/**
+ * Converts pressure between units and handles API inconsistencies
+ *
+ * CRITICAL FIX: The AviationWeather.gov API sometimes returns the altimeter
+ * field in mb/hPa instead of inHg, despite documentation stating otherwise.
+ * This function detects values >100 (which must be mb) and converts them.
+ *
+ * @param altimInHg - Altimeter setting (supposed to be inHg, but may be mb)
+ * @param slpMb - Sea level pressure in millibars
+ * @returns Object with pressure in all units: hg, hpa, kpa, mb
+ *
+ * @example
+ * // When API incorrectly returns mb as altim:
+ * convertPressure(1016.7) // Detects >100, converts: { hg: 30.02, mb: 1016.7, ... }
+ *
+ * // Normal case with correct inHg:
+ * convertPressure(29.92) // { hg: 29.92, mb: 1013.2, ... }
+ */
 function convertPressure(altimInHg?: number, slpMb?: number) {
   // Bug fix: API sometimes returns altim in mb instead of inHg
   // Detect if altim looks like mb (>100) and convert it

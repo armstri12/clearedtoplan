@@ -1,7 +1,55 @@
+/**
+ * Flight Session Context
+ *
+ * Manages the complete flight planning workflow and session state.
+ * This is the core state management system for the application.
+ *
+ * Architecture:
+ * - FlightSession: Complete flight planning data (aircraft, W&B, performance, weather, navlog)
+ * - Workflow tracking: Enforces step-by-step completion
+ * - Data persistence: Auto-saves to localStorage
+ * - Multi-session support: Save and load multiple flight plans
+ *
+ * Workflow Steps (must be completed in order):
+ * 1. Aircraft - Select aircraft profile and basic info
+ * 2. Weight & Balance - Calculate W&B for ramp, takeoff, landing
+ * 3. Performance - Calculate density altitude and takeoff/landing distances
+ * 4. Weather - Fetch METAR/TAF for departure, destination, alternates
+ * 5. Navlog - Build navigation log with legs, checkpoints, fuel burn
+ *
+ * Data Flow:
+ * - Each page updates its section using updateAircraft(), updateWeightBalance(), etc.
+ * - Pages mark their step complete using completeStep()
+ * - WorkflowGuard checks canAccessStep() to enforce workflow order
+ * - All changes auto-save to localStorage
+ *
+ * Usage:
+ * ```tsx
+ * const { currentSession, updateAircraft, completeStep } = useFlightSession();
+ *
+ * // Start planning
+ * startNewSession('Flight to KMCO');
+ *
+ * // Update data
+ * updateAircraft({ profileId: '...', ident: 'N12345', ... });
+ * completeStep('aircraft');
+ *
+ * // Navigate with workflow enforcement
+ * if (canAccessStep('weightBalance')) {
+ *   navigate('/wb');
+ * }
+ * ```
+ *
+ * @module FlightSessionContext
+ */
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 
 // ===== TYPES =====
 
+/**
+ * Aircraft performance data structure
+ * Includes cruise performance tables and takeoff/landing baselines
+ */
 export type AircraftPerformance = {
   // Cruise performance (multiple power settings)
   cruisePerformance: Array<{
@@ -18,20 +66,39 @@ export type AircraftPerformance = {
   landingOver50ft: number;    // feet
 };
 
+/**
+ * Aircraft data stored in flight session
+ * Snapshot of aircraft profile and weight/balance parameters
+ */
 export type FlightSessionAircraft = {
+  /** ID of the aircraft profile this data came from */
   profileId: string;
-  ident: string;              // N12345
-  type: string;               // C172S
-  emptyWeight: number;        // lbs
-  emptyMoment: number;        // lb-in
+  /** Aircraft registration (N-number or tail number) */
+  ident: string;
+  /** Aircraft type/model (e.g., "C172S", "PA-28-181") */
+  type: string;
+  /** Empty weight in pounds */
+  emptyWeight: number;
+  /** Empty weight moment in pound-inches */
+  emptyMoment: number;
+  /** Maximum ramp weight in pounds (optional) */
   maxRampWeight?: number;
+  /** Maximum takeoff weight in pounds (optional) */
   maxTakeoffWeight?: number;
+  /** Maximum landing weight in pounds (optional) */
   maxLandingWeight?: number;
-  fuelCapacityUsable: number; // gallons
-  fuelDensity: number;        // lb/gal (default 6.0)
+  /** Usable fuel capacity in gallons */
+  fuelCapacityUsable: number;
+  /** Fuel density in pounds per gallon (typically 6.0 for 100LL) */
+  fuelDensity: number;
+  /** Performance data for cruise, takeoff, and landing */
   performance: AircraftPerformance;
 };
 
+/**
+ * Weight & Balance data stored in flight session
+ * Includes payload, fuel, and calculated W&B results
+ */
 export type FlightSessionWB = {
   // Payload
   frontSeatsLb: number;
@@ -101,14 +168,37 @@ export type FlightSessionNavlog = {
   legs: any[];  // Will use existing Leg type
 };
 
+/**
+ * Complete Flight Session
+ *
+ * Represents a complete flight planning session with all workflow data.
+ * This is the main data structure that gets saved to localStorage.
+ *
+ * Lifecycle:
+ * 1. Created with createEmptySession(name)
+ * 2. Updated as user completes each workflow step
+ * 3. Auto-saved to localStorage on every change
+ * 4. Can be loaded, saved, or deleted from saved sessions list
+ *
+ * Workflow Enforcement:
+ * - Steps must be completed in order (aircraft → W&B → performance → weather → navlog)
+ * - Each step stores its data in the corresponding field
+ * - completed flags track which steps are done
+ * - WorkflowGuard component uses this to control navigation
+ */
 export type FlightSession = {
+  /** Unique session identifier */
   id: string;
+  /** User-friendly session name (e.g., "Flight to KMCO") */
   name: string;
+  /** ISO timestamp of session creation */
   createdAt: string;
+  /** ISO timestamp of last update */
   updatedAt: string;
-  userId?: string;  // For multi-user support
+  /** User ID for multi-user support (future enhancement) */
+  userId?: string;
 
-  // Workflow completion tracking
+  /** Workflow completion tracking - enforces step-by-step progression */
   completed: {
     aircraft: boolean;
     weightBalance: boolean;
@@ -117,7 +207,7 @@ export type FlightSession = {
     navlog: boolean;
   };
 
-  // Data from each step
+  /** Data from each workflow step */
   aircraft?: FlightSessionAircraft;
   weightBalance?: FlightSessionWB;
   performance?: FlightSessionPerformance;
@@ -127,6 +217,10 @@ export type FlightSession = {
 
 // ===== CONTEXT =====
 
+/**
+ * Flight Session Context Type
+ * Defines all state and functions available through useFlightSession() hook
+ */
 type FlightSessionContextType = {
   currentSession: FlightSession | null;
   savedSessions: FlightSession[];
