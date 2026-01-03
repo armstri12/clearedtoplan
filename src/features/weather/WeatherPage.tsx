@@ -48,6 +48,45 @@ type RunwayVisualization = {
   };
 };
 
+function getLocalTimezoneLabel(date: Date): { zone: string; short: string } {
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const short = Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: 'short' })
+    .formatToParts(date)
+    .find(part => part.type === 'timeZoneName')?.value ?? zone;
+  return { zone, short };
+}
+
+function formatInZone(date: Date, timeZone: string, pattern: 'dd HH:mm' | 'MMM d HH:mm'): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    month: pattern.includes('MMM') ? 'short' : undefined,
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date);
+
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? '';
+  const month = get('month');
+  const day = get('day');
+  const hour = get('hour');
+  const minute = get('minute');
+
+  return pattern === 'dd HH:mm'
+    ? `${day} ${hour}:${minute}`
+    : `${month} ${day} ${hour}:${minute}`;
+}
+
+function getParallelPriority(startIdent: string, endIdent: string): number {
+  const match = startIdent.match(/\d{2}([LCR])$/i) || endIdent.match(/\d{2}([LCR])$/i);
+  if (!match) return 0;
+
+  const suffix = match[1].toUpperCase();
+  if (suffix === 'L') return -1;
+  if (suffix === 'R') return 1;
+  return 0;
+}
+
 function normalizeHeading(heading: number | null | undefined): number | null {
   if (heading === null || heading === undefined || Number.isNaN(heading)) return null;
   const normalized = heading % 360;
@@ -263,11 +302,24 @@ function RunwayDiagram({
               <text x={24} y={center + 3} textAnchor="middle" fontSize="11" fill="#475569" fontWeight={700}>W</text>
               <text x={size - 24} y={center + 3} textAnchor="middle" fontSize="11" fill="#475569" fontWeight={700}>E</text>
 
-              {/* Wind arrow (coming from) */}
-              <g transform={`translate(${center}, ${center}) rotate(${windDir - 90})`}>
-                <line x1={0} y1={-radius} x2={0} y2={radius * 0.18} stroke="#16a34a" strokeWidth={5} strokeLinecap="round" />
-                <polygon points={`0,${-radius - 8} 9,${-radius + 10} -9,${-radius + 10}`} fill="#16a34a" />
-                <circle cx={0} cy={0} r={5} fill="#16a34a" />
+              {/* Wind arrow (tail at wind direction, head 180° opposite) */}
+              <g transform={`translate(${center}, ${center}) rotate(${windDir})`}>
+                <line
+                  x1={0}
+                  y1={-radius * 0.9}
+                  x2={0}
+                  y2={radius * 0.8}
+                  stroke="#f97316"
+                  strokeWidth={6}
+                  strokeLinecap="round"
+                  opacity={0.92}
+                />
+                <polygon
+                  points={`0,${radius * 0.8 + 10} 12,${radius * 0.8 - 10} -12,${radius * 0.8 - 10}`}
+                  fill="#ea580c"
+                  opacity={0.95}
+                />
+                <circle cx={0} cy={-radius * 0.9} r={6} fill="#fb923c" stroke="#ea580c" strokeWidth={2} />
               </g>
 
               {visuals.map(runway => {
@@ -278,14 +330,18 @@ function RunwayDiagram({
                 const half = visualLength / 2;
                 const dx = Math.sin(axis) * half;
                 const dy = Math.cos(axis) * half;
-                const baseStroke = runway.id === highlighted?.id ? '#16a34a' : '#475569';
-                const overlayStroke = runway.id === highlighted?.id ? '#22c55e' : '#94a3b8';
+                const baseStroke = runway.id === highlighted?.id ? '#0f172a' : '#1f2937';
+                const overlayStroke = runway.id === highlighted?.id ? '#2563eb' : '#9ca3af';
                 const strokeWidth = 6 + Math.min(4, ((runway.width ?? 150) - 75) / 75);
+                const parallelOffset = getParallelPriority(runway.labels.start, runway.labels.end) * 11;
 
-                const startX = center - dx;
-                const startY = center + dy;
-                const endX = center + dx;
-                const endY = center - dy;
+                const normalX = Math.cos(axis);
+                const normalY = -Math.sin(axis);
+
+                const startX = center - dx + normalX * parallelOffset;
+                const startY = center + dy + normalY * parallelOffset;
+                const endX = center + dx + normalX * parallelOffset;
+                const endY = center - dy + normalY * parallelOffset;
                 const labelOffsetX = Math.cos(axis) * 10;
                 const labelOffsetY = Math.sin(axis) * 10;
 
@@ -347,6 +403,7 @@ export default function WeatherPage() {
   const [airports, setAirports] = useState<AirportWeather[]>([]);
   const [icaoInput, setIcaoInput] = useState<string>('');
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  const { zone: localZone, short: localTzShort } = useMemo(() => getLocalTimezoneLabel(new Date()), []);
 
   async function addAirport() {
     const icao = parseIcaoCode(icaoInput);
@@ -718,17 +775,17 @@ export default function WeatherPage() {
                   </div>
 
                   {/* Runway Favored Based on Wind */}
-                  {selected.metar.wind && (
-                    <RunwayDiagram
-                      runways={selected.runways}
-                      wind={selected.metar.wind}
-                      loading={selected.runwaysLoading}
-                      error={selected.runwaysError}
-                      icao={selected.icao}
-                    />
-                  )}
+              {selected.metar.wind && (
+                <RunwayDiagram
+                  runways={selected.runways}
+                  wind={selected.metar.wind}
+                  loading={selected.runwaysLoading}
+                  error={selected.runwaysError}
+                  icao={selected.icao}
+                />
+              )}
 
-                  {/* Clouds */}
+              {/* Clouds */}
                   {selected.metar.clouds && selected.metar.clouds.length > 0 && (
                     <div style={{ padding: 12, borderRadius: 8, background: '#f3f4f6', border: '1px solid #d1d5db', marginBottom: 12 }}>
                       <div style={{ fontSize: 11, fontWeight: 800, opacity: 0.7, marginBottom: 6 }}>
@@ -788,14 +845,23 @@ export default function WeatherPage() {
                     padding: 20,
                   }}
                 >
-                  <h3 style={{ margin: 0, fontSize: 20, marginBottom: 4 }}>
-                    TAF - {selected.taf.icao}
-                  </h3>
-                  {selected.taf.name && (
-                    <div style={{ fontSize: 14, opacity: 0.7, marginBottom: 8 }}>
-                      {selected.taf.name}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8, alignItems: 'baseline' }}>
+                    <div>
+                      <h3 style={{ margin: 0, fontSize: 20, marginBottom: 4 }}>
+                        TAF - {selected.taf.icao}
+                      </h3>
+                      {selected.taf.name && (
+                        <div style={{ fontSize: 14, opacity: 0.7 }}>
+                          {selected.taf.name}
+                        </div>
+                      )}
                     </div>
-                  )}
+                    {selected.taf.timestamp?.issued && (
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', background: '#e0f2fe', border: '1px solid #bae6fd', padding: '6px 10px', borderRadius: 999 }}>
+                        Issued {formatInZone(new Date(selected.taf.timestamp.issued), 'UTC', 'MMM d HH:mm')}Z · {formatInZone(new Date(selected.taf.timestamp.issued), localZone, 'MMM d HH:mm')} {localTzShort}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Nearby TAF Notice */}
                   {selected.tafIsNearby && selected.taf.icao !== selected.icao && (
@@ -904,19 +970,27 @@ export default function WeatherPage() {
 
                       return (
                         <div style={{ marginBottom: 16, overflowX: 'auto' }}>
-                          <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.7, marginBottom: 12 }}>
-                            HOURLY FORECAST
+                          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.2, color: '#0f172a' }}>
+                              HOURLY FORECAST
+                            </div>
+                            <div style={{ padding: '6px 10px', background: '#ecfdf3', border: '1px solid #bbf7d0', borderRadius: 999, fontSize: 11, fontWeight: 700, color: '#166534' }}>
+                              Valid {formatInZone(report.start, 'UTC', 'MMM d HH:mm')}Z – {formatInZone(report.end, 'UTC', 'MMM d HH:mm')}Z
+                            </div>
+                            <div style={{ padding: '6px 10px', background: '#eef2ff', border: '1px solid #e0e7ff', borderRadius: 999, fontSize: 11, fontWeight: 700, color: '#312e81' }}>
+                              Local time shown in {localZone} ({localTzShort})
+                            </div>
                           </div>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                          <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 12, border: '1px solid #e5e7eb', borderRadius: 12, overflow: 'hidden', boxShadow: '0 10px 24px rgba(15,23,42,0.06)' }}>
                             <thead>
-                              <tr style={{ background: '#f3f4f6' }}>
-                                <th style={{ padding: '8px 10px', textAlign: 'left', border: '1px solid #ddd', fontWeight: 800, minWidth: 80 }}>Zulu</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'left', border: '1px solid #ddd', fontWeight: 800, minWidth: 80 }}>Local</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'center', border: '1px solid #ddd', fontWeight: 800, minWidth: 80 }}>Wind</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'center', border: '1px solid #ddd', fontWeight: 800, minWidth: 60 }}>Vis</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'left', border: '1px solid #ddd', fontWeight: 800, minWidth: 120 }}>Weather</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'left', border: '1px solid #ddd', fontWeight: 800, minWidth: 150 }}>Clouds</th>
-                                <th style={{ padding: '8px 10px', textAlign: 'center', border: '1px solid #ddd', fontWeight: 800, minWidth: 60 }}>Cat</th>
+                              <tr style={{ background: '#f8fafc' }}>
+                                <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontWeight: 800, minWidth: 90 }}>Zulu (UTC)</th>
+                                <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontWeight: 800, minWidth: 120 }}>Local ({localTzShort})</th>
+                                <th style={{ padding: '10px 12px', textAlign: 'center', borderBottom: '1px solid #e5e7eb', fontWeight: 800, minWidth: 90 }}>Wind</th>
+                                <th style={{ padding: '10px 12px', textAlign: 'center', borderBottom: '1px solid #e5e7eb', fontWeight: 800, minWidth: 70 }}>Vis</th>
+                                <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontWeight: 800, minWidth: 140 }}>Weather</th>
+                                <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontWeight: 800, minWidth: 170 }}>Clouds</th>
+                                <th style={{ padding: '10px 12px', textAlign: 'center', borderBottom: '1px solid #e5e7eb', fontWeight: 800, minWidth: 70 }}>Cat</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -982,35 +1056,35 @@ export default function WeatherPage() {
                                 // Determine row color based on hour
                                 const now = new Date();
                                 const isCurrent = hour <= now && now < new Date(hour.getTime() + 60 * 60 * 1000);
-                                const bgColor = isCurrent ? '#dbeafe' : (i % 2 === 0 ? '#fff' : '#fafafa');
+                                const bgColor = isCurrent ? '#e0f2fe' : (i % 2 === 0 ? '#ffffff' : '#f8fafc');
 
                                 return (
-                                  <tr key={i} style={{ background: bgColor }}>
+                                  <tr key={i} style={{ background: bgColor, borderBottom: '1px solid #e5e7eb' }}>
                                     {/* Zulu Time */}
-                                    <td style={{ padding: '6px 10px', border: '1px solid #ddd', fontFamily: 'monospace', fontSize: 11, fontWeight: isCurrent ? 800 : 600 }}>
-                                      {format(new Date(hour.toUTCString()), 'dd HH:mm')}Z
+                                    <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 11, fontWeight: isCurrent ? 800 : 600 }}>
+                                      {formatInZone(hour, 'UTC', 'dd HH:mm')}Z
                                       {isCurrent && <span style={{ marginLeft: 6, color: '#2563eb' }}>●</span>}
                                     </td>
                                     {/* Local Time */}
-                                    <td style={{ padding: '6px 10px', border: '1px solid #ddd', fontFamily: 'monospace', fontSize: 11, fontWeight: isCurrent ? 800 : 600, color: '#64748b' }}>
-                                      {format(hour, 'dd HH:mm')}
+                                    <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 11, fontWeight: isCurrent ? 800 : 600, color: '#475569' }}>
+                                      {formatInZone(hour, localZone, 'dd HH:mm')} {localTzShort}
                                     </td>
-                                    <td style={{ padding: '6px 10px', border: '1px solid #ddd', fontFamily: 'monospace', fontSize: 11, textAlign: 'center' }}>
+                                    <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 11, textAlign: 'center' }}>
                                       {windStr}
                                     </td>
-                                    <td style={{ padding: '6px 10px', border: '1px solid #ddd', fontFamily: 'monospace', fontSize: 11, textAlign: 'center' }}>
+                                    <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 11, textAlign: 'center' }}>
                                       {visStr}
                                     </td>
-                                    <td style={{ padding: '6px 10px', border: '1px solid #ddd', fontSize: 11 }}>
+                                    <td style={{ padding: '8px 12px', fontSize: 11 }}>
                                       {wxStr}
                                     </td>
-                                    <td style={{ padding: '6px 10px', border: '1px solid #ddd', fontSize: 11 }}>
+                                    <td style={{ padding: '8px 12px', fontSize: 11 }}>
                                       {cloudsStr}
                                     </td>
-                                    <td style={{ padding: '6px 10px', border: '1px solid #ddd', textAlign: 'center' }}>
+                                    <td style={{ padding: '8px 12px', textAlign: 'center' }}>
                                       <span style={{
-                                        padding: '2px 8px',
-                                        borderRadius: 4,
+                                        padding: '3px 9px',
+                                        borderRadius: 999,
                                         fontSize: 10,
                                         fontWeight: 800,
                                         background: flightCat === 'VFR' ? '#dcfce7' : flightCat === 'MVFR' ? '#fef3c7' : flightCat === 'IFR' ? '#fecaca' : '#fca5a5',
