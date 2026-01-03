@@ -1,6 +1,6 @@
-import { getMetar, getTaf, parseIcaoCode, type MetarData, type TafData } from './aviationApi';
+import { getMetar, getTaf, parseIcaoCode, type MetarData, type TafData } from './aviationApi.js';
 
-const WEATHER_API_URL = import.meta.env.VITE_WEATHER_API_URL;
+const WEATHER_API_URL = (import.meta?.env?.VITE_WEATHER_API_URL as string | undefined) ?? undefined;
 
 export type WeatherPackage = {
   icao: string;

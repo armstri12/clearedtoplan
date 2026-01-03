@@ -81,7 +81,7 @@ export function ExportBriefStep() {
 
   return (
     <div className="wizard-section">
-      <h3>Export & Brief</h3>
+      <h2 id="export-brief-heading">Export &amp; Brief</h2>
       <p className="wizard-helper">
         Aggregate your plan into a print- and clipboard-ready brief. Edits flow from each step, so tap an edit link if something looks off.
       </p>
@@ -153,11 +153,11 @@ export function ExportBriefStep() {
         )}
       </div>
 
-      <div className="briefing-printable print-card" ref={printRef}>
+        <div className="briefing-printable print-card" ref={printRef}>
         <div className="briefing-printable__header">
           <div>
             <p className="briefing-eyebrow">Flight brief</p>
-            <h4>{snapshot.basics.title || 'Flight Brief'}</h4>
+            <h3>{snapshot.basics.title || 'Flight Brief'}</h3>
             <p className="wizard-helper" style={{ marginTop: 4 }}>{subtitle}</p>
           </div>
           <div className="briefing-meta">
@@ -169,7 +169,7 @@ export function ExportBriefStep() {
         <div className="briefing-section-grid">
           {sections.map((section) => (
             <div key={section.title} className="briefing-card print-card">
-              <p className="briefing-card__title">{section.title}</p>
+              <h4 className="briefing-card__title">{section.title}</h4>
               <dl className="briefing-list">
                 {section.rows.map((row) => (
                   <div key={row.label} className="briefing-list__row">
