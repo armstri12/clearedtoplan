@@ -505,12 +505,44 @@ export default function WeatherPage() {
                       console.log('Report start:', report.start);
                       console.log('Report end:', report.end);
 
-                      if (!report.start || !report.end) return null;
+                      if (!report.start || !report.end) {
+                        console.warn('Report missing start or end time');
+                        return null;
+                      }
 
-                      const hours = eachHourOfInterval({
+                      // Generate all hours in the TAF validity period
+                      const allHours = eachHourOfInterval({
                         start: report.start,
                         end: report.end,
                       });
+
+                      console.log('Total hours in TAF period:', allHours.length);
+                      console.log('First hour:', allHours[0]);
+                      console.log('Last hour:', allHours[allHours.length - 1]);
+
+                      // Filter to only show next 24-30 hours from now for practical use
+                      const now = new Date();
+                      const maxHours = 30;
+                      const relevantHours = allHours
+                        .filter(hour => hour >= now) // Only future hours
+                        .slice(0, maxHours); // Limit to next 30 hours
+
+                      console.log('Current time:', now);
+                      console.log('Filtered to relevant hours:', relevantHours.length);
+
+                      if (relevantHours.length === 0) {
+                        console.warn('No relevant future hours in TAF');
+                        return (
+                          <div style={{ padding: 12, borderRadius: 8, background: '#fffbeb', border: '1px solid #fbbf24', color: '#92400e', marginBottom: 16 }}>
+                            <div style={{ fontWeight: 700, marginBottom: 4 }}>TAF Expired</div>
+                            <div style={{ fontSize: 11 }}>
+                              This TAF is no longer valid (ended {format(report.end, 'MMM d HH:mm')} UTC). See raw TAF below.
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      const hours = relevantHours;
 
                       return (
                         <div style={{ marginBottom: 16, overflowX: 'auto' }}>
@@ -530,9 +562,13 @@ export default function WeatherPage() {
                             </thead>
                             <tbody>
                               {hours.map((hour, i) => {
-                                const { prevailing } = getCompositeForecastForDate(hour, report);
+                                try {
+                                  const { prevailing } = getCompositeForecastForDate(hour, report);
 
-                                if (!prevailing) return null;
+                                  if (!prevailing) {
+                                    console.warn('No prevailing forecast for hour:', hour);
+                                    return null;
+                                  }
 
                                 // Wind
                                 const wind = prevailing.wind;
@@ -621,6 +657,10 @@ export default function WeatherPage() {
                                     </td>
                                   </tr>
                                 );
+                                } catch (hourError) {
+                                  console.error('Error getting forecast for hour:', hour, hourError);
+                                  return null;
+                                }
                               })}
                             </tbody>
                           </table>
