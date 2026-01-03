@@ -273,10 +273,17 @@ function useFlightPlanStoreContext() {
 
 export function useFlightPlan<T>(
   selector: (state: FlightPlanState) => T,
-  equalityFn: (left: T, right: T) => boolean = shallow,
+  equalityFn?: (left: T, right: T) => boolean,
 ) {
   const store = useFlightPlanStoreContext();
-  return useStore(store, selector, equalityFn);
+  const resolvedEqualityFn =
+    equalityFn ??
+    ((left: T, right: T) =>
+      shallow(
+        left as unknown as Record<string, unknown>,
+        right as unknown as Record<string, unknown>,
+      ));
+  return useStore(store, selector, resolvedEqualityFn);
 }
 
 export function useFlightPlanUpdater() {
