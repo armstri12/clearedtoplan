@@ -362,6 +362,7 @@ export async function getTaf(icao: string): Promise<TafData | null> {
 
   try {
     const url = `${WORKER_URL}/taf?ids=${icao.toUpperCase()}&format=json`;
+    console.log('Fetching TAF from:', url);
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -369,7 +370,25 @@ export async function getTaf(icao: string): Promise<TafData | null> {
       return null;
     }
 
-    const data: AvWxTafRaw[] = await response.json();
+    // Get raw text first to debug JSON parsing issues
+    const rawText = await response.text();
+    console.log('TAF raw response (first 500 chars):', rawText.substring(0, 500));
+    console.log('TAF response length:', rawText.length, 'bytes');
+
+    let data: AvWxTafRaw[];
+    try {
+      data = JSON.parse(rawText);
+    } catch (parseError) {
+      console.error('=== TAF JSON PARSING FAILED ===');
+      console.error('Parse error:', parseError);
+      console.error('Full raw response:', rawText);
+      console.error('This indicates the API/Worker returned malformed JSON');
+      console.error('Possible causes:');
+      console.error('  1. Cloudflare Worker is truncating the response');
+      console.error('  2. AviationWeather.gov API is returning incomplete data');
+      console.error('  3. Network timeout cutting off the response');
+      return null;
+    }
 
     if (!data || data.length === 0) {
       console.warn(`No TAF data available for ${icao}`);
@@ -466,7 +485,22 @@ export async function getNearestTaf(icao: string): Promise<TafData | null> {
         continue;
       }
 
-      const data: AvWxTafRaw[] = await response.json();
+      // Get raw text first to debug JSON parsing issues
+      const rawText = await response.text();
+      console.log('Raw API response (first 500 chars):', rawText.substring(0, 500));
+      console.log('Response length:', rawText.length, 'bytes');
+
+      let data: AvWxTafRaw[];
+      try {
+        data = JSON.parse(rawText);
+      } catch (parseError) {
+        console.error('JSON parsing failed!');
+        console.error('Parse error:', parseError);
+        console.error('Raw response:', rawText);
+        console.error('This indicates the API returned malformed JSON');
+        continue;
+      }
+
       console.log(`API returned ${data?.length || 0} TAFs`);
       console.log('TAF ICAOs found:', data?.map(t => t.icaoId).join(', ') || 'none');
 
