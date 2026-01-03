@@ -176,10 +176,13 @@ export type FlightSessionMetadata = {
   route?: string;
   departure?: string;
   destination?: string;
+  departureTime?: string;
   etd?: string;
   eta?: string;
   lessonType?: string;
   alternates?: string[];
+  fuelPolicy?: string;
+  notes?: string;
 };
 
 /**

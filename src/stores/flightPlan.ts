@@ -11,11 +11,15 @@ export type FlightPlanBasics = {
   route?: string;
   departure?: string;
   destination?: string;
+  departureTime?: string;
   etd?: string;
   eta?: string;
   lessonType?: string;
   aircraftIdent?: string;
   aircraftType?: string;
+  aircraftProfileId?: string;
+  fuelPolicy?: string;
+  notes?: string;
 };
 
 export type WeatherSnapshot = {
@@ -214,11 +218,15 @@ function deriveBasics(user: ReturnType<typeof useAuth>['user'], session: FlightS
     route: session?.metadata.route ?? session?.navlog?.route,
     departure: session?.metadata.departure ?? session?.navlog?.departure ?? session?.weather?.departure?.icao,
     destination: session?.metadata.destination ?? session?.navlog?.destination ?? session?.weather?.destination?.icao,
+    departureTime: session?.metadata.departureTime ?? session?.metadata.etd ?? session?.navlog?.departureTime,
     etd: session?.metadata.etd ?? session?.navlog?.departureTime,
     eta: session?.metadata.eta ?? session?.navlog?.arrivalTime,
     lessonType: session?.metadata.lessonType,
     aircraftIdent: session?.aircraft?.ident,
     aircraftType: session?.aircraft?.type,
+    aircraftProfileId: session?.aircraft?.profileId,
+    fuelPolicy: session?.metadata.fuelPolicy,
+    notes: session?.metadata.notes,
   };
 }
 
