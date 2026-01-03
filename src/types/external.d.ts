@@ -24,3 +24,12 @@ declare module 'jspdf' {
 declare module 'html2canvas' {
   export default function html2canvas(element: HTMLElement, options?: Record<string, unknown>): Promise<HTMLCanvasElement>;
 }
+
+declare global {
+  interface Window {
+    html2canvas?: (element: HTMLElement, options?: Record<string, unknown>) => Promise<HTMLCanvasElement>;
+    jspdf?: {
+      jsPDF: typeof import('jspdf').jsPDF;
+    };
+  }
+}
