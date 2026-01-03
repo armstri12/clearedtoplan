@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { clamp } from '../../lib/utils';
+import { useFlightSession } from '../../context/FlightSessionContext';
 
 const COLORS = {
   primary: '#2563eb',
@@ -98,17 +99,31 @@ function formatTime(minutes: number): string {
   return h > 0 ? `${h}:${m.toString().padStart(2, '0')}` : `0:${m.toString().padStart(2, '0')}`;
 }
 
+function computeEta(departureTime: string, eteMinutes: number): string {
+  if (!departureTime || !eteMinutes) return '';
+  const [hourStr, minuteStr] = departureTime.split(':');
+  const depMinutes = Number(hourStr) * 60 + Number(minuteStr);
+  if (!Number.isFinite(depMinutes)) return '';
+
+  const totalMinutes = depMinutes + Math.round(eteMinutes);
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+  const minutes = Math.floor(totalMinutes % 60);
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+}
+
 export default function NavlogPage() {
+  const { currentSession, updateMetadata } = useFlightSession();
+
   // Flight plan information
   const [flightPlan, setFlightPlan] = useState<FlightPlanInfo>({
     aircraftType: 'C172S',
     aircraftIdent: 'N12345',
     pilotName: '',
-    departure: '',
-    destination: '',
-    route: '',
+    departure: currentSession?.metadata.departure ?? '',
+    destination: currentSession?.metadata.destination ?? '',
+    route: currentSession?.metadata.route ?? '',
     cruiseAlt: '4500',
-    departureTime: '',
+    departureTime: currentSession?.metadata.etd ?? '',
     ete: '',
     fuelOnboard: '40.0',
   });
@@ -223,9 +238,27 @@ export default function NavlogPage() {
   }, [legs, tas, fuelBurn, tripWindDir, tripWindSpd, tripVarDeg, tripVarDir]);
 
   // Auto-update flight plan ETE
-  useMemo(() => {
+  useEffect(() => {
     updateFlightPlan({ ete: formatTime(computed.totalMin) });
   }, [computed.totalMin]);
+
+  useEffect(() => {
+    const eta = computeEta(flightPlan.departureTime, computed.totalMin);
+    updateMetadata({
+      route: flightPlan.route || undefined,
+      departure: flightPlan.departure || undefined,
+      destination: flightPlan.destination || undefined,
+      etd: flightPlan.departureTime || undefined,
+      eta: eta || undefined,
+    });
+  }, [
+    computed.totalMin,
+    flightPlan.departure,
+    flightPlan.departureTime,
+    flightPlan.destination,
+    flightPlan.route,
+    updateMetadata,
+  ]);
 
   const cellInput: CSSProperties = {
     width: '100%',

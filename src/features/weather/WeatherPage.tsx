@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFlightSession } from '../../context/FlightSessionContext';
 import { getMetar, getTaf, getNearestTaf, parseIcaoCode, type MetarData, type TafData } from '../../services/aviationApi';
@@ -27,7 +27,7 @@ type AirportWeather = {
 
 export default function WeatherPage() {
   const navigate = useNavigate();
-  const { currentSession, completeStep } = useFlightSession();
+  const { currentSession, completeStep, updateMetadata } = useFlightSession();
 
   const [airports, setAirports] = useState<AirportWeather[]>([]);
   const [icaoInput, setIcaoInput] = useState<string>('');
@@ -100,6 +100,11 @@ export default function WeatherPage() {
   }
 
   const selected = airports[selectedIndex];
+
+  useEffect(() => {
+    const alternates = airports.slice(2).map((a) => a.icao);
+    updateMetadata({ alternates });
+  }, [airports, updateMetadata]);
 
   return (
     <div>
