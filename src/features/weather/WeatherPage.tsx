@@ -442,7 +442,32 @@ export default function WeatherPage() {
                   {/* Hourly Forecast Table */}
                   {selected.taf.raw_text && (() => {
                     try {
-                      const issued = selected.taf.timestamp?.issued ? new Date(selected.taf.timestamp.issued) : new Date();
+                      // Parse issue time from raw TAF (format: TAF ICAO DDHHmmZ ...)
+                      let issued = new Date();
+
+                      if (selected.taf.timestamp?.issued) {
+                        issued = new Date(selected.taf.timestamp.issued);
+                      } else {
+                        // Try to extract issue time from raw TAF text
+                        // Format: TAF KENW 031120Z means issued on day 03 at 1120Z
+                        const issueMatch = selected.taf.raw_text.match(/TAF\s+\w{4}\s+(\d{2})(\d{2})(\d{2})Z/);
+                        if (issueMatch) {
+                          const day = parseInt(issueMatch[1]);
+                          const hour = parseInt(issueMatch[2]);
+                          const minute = parseInt(issueMatch[3]);
+
+                          // Use current month/year but set the day/hour/minute from TAF
+                          const now = new Date();
+                          issued = new Date(Date.UTC(
+                            now.getUTCFullYear(),
+                            now.getUTCMonth(),
+                            day,
+                            hour,
+                            minute
+                          ));
+                        }
+                      }
+
                       const report = parseTAFAsForecast(selected.taf.raw_text, { issued });
 
                       if (!report.start || !report.end) return null;
