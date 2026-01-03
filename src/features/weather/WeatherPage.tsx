@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useFlightSession } from '../../context/FlightSessionContext';
 import { getMetar, getTaf, getNearestTaf, parseIcaoCode, type MetarData, type TafData } from '../../services/aviationApi';
 import { parseTAFAsForecast, getCompositeForecastForDate } from 'metar-taf-parser';
@@ -25,6 +26,7 @@ type AirportWeather = {
 };
 
 export default function WeatherPage() {
+  const navigate = useNavigate();
   const { currentSession, completeStep, updateMetadata } = useFlightSession();
 
   const [airports, setAirports] = useState<AirportWeather[]>([]);
@@ -103,14 +105,6 @@ export default function WeatherPage() {
     const alternates = airports.slice(2).map((a) => a.icao);
     updateMetadata({ alternates });
   }, [airports, updateMetadata]);
-
-  useEffect(() => {
-    if (!currentSession || airports.length === 0) return;
-
-    if (!currentSession.completed.weather) {
-      completeStep('weather');
-    }
-  }, [airports.length, completeStep, currentSession]);
 
   return (
     <div>
@@ -814,6 +808,54 @@ export default function WeatherPage() {
         </div>
       )}
 
+      {/* Continue Button */}
+      {airports.length > 0 && (
+        <div
+          style={{
+            marginTop: 32,
+            paddingTop: 24,
+            borderTop: '2px solid #e2e8f0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <div style={{ fontSize: 14, color: '#64748b' }}>
+            {currentSession && (
+              <div>
+                Flight Plan: <strong>{currentSession.name}</strong>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => {
+              completeStep('weather');
+              navigate('/navlog');
+            }}
+            style={{
+              padding: '12px 32px',
+              background: '#2563eb',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 8,
+              fontWeight: 700,
+              fontSize: 16,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = '#1e40af';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = '#2563eb';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            Continue to Navlog →
+          </button>
+        </div>
+      )}
     </div>
   );
 }
