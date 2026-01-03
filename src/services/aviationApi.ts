@@ -139,8 +139,19 @@ function metersToFeet(m: number): number {
 
 // Helper to convert mb to various pressure units
 function convertPressure(altimInHg?: number, slpMb?: number) {
-  const hg = altimInHg || (slpMb ? slpMb * 0.02953 : 29.92);
-  const mb = slpMb || (altimInHg ? altimInHg / 0.02953 : 1013);
+  // Bug fix: API sometimes returns altim in mb instead of inHg
+  // Detect if altim looks like mb (>100) and convert it
+  let hgValue = altimInHg;
+  let mbValue = slpMb;
+
+  if (altimInHg && altimInHg > 100) {
+    // Value is in mb/hPa, not inHg - convert it
+    mbValue = altimInHg;
+    hgValue = altimInHg * 0.02953;
+  }
+
+  const hg = hgValue || (mbValue ? mbValue * 0.02953 : 29.92);
+  const mb = mbValue || (hgValue ? hgValue / 0.02953 : 1013);
   return {
     hg: Math.round(hg * 100) / 100,
     hpa: Math.round(mb * 10) / 10,
