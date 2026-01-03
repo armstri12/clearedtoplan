@@ -168,40 +168,6 @@ function RunwayDiagram({
   const center = size / 2;
   const radius = center - 34;
 
-  const windFromAngle = windDir;
-  const windToAngle = (windDir + 180) % 360;
-
-  function polar(angle: number, r: number) {
-    const rad = (angle * Math.PI) / 180;
-    return {
-      x: center + Math.sin(rad) * r,
-      y: center - Math.cos(rad) * r,
-    };
-  }
-
-  const arrowTail = polar(windFromAngle, radius * 0.92);
-  const arrowHead = polar(windToAngle, radius * 0.48);
-  const arrowVector = {
-    x: arrowHead.x - arrowTail.x,
-    y: arrowHead.y - arrowTail.y,
-  };
-  const arrowLength = Math.sqrt(arrowVector.x ** 2 + arrowVector.y ** 2) || 1;
-  const normX = arrowVector.x / arrowLength;
-  const normY = arrowVector.y / arrowLength;
-  const arrowLeft = {
-    x: arrowHead.x - normX * 12 + normY * 6,
-    y: arrowHead.y - normY * 12 - normX * 6,
-  };
-  const arrowRight = {
-    x: arrowHead.x - normX * 12 - normY * 6,
-    y: arrowHead.y - normY * 12 + normX * 6,
-  };
-
-  return (
-    <div style={{ padding: 14, borderRadius: 12, background: '#e8f7f1', border: '1px solid #8be0bb', marginBottom: 12 }}>
-      <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.8, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: '50%', background: '#14b8a6', color: '#fff', fontWeight: 900 }}>
-
   return (
     <div style={{ padding: 14, borderRadius: 12, background: '#ecfdf3', border: '1px solid #86efac', marginBottom: 12 }}>
       <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.8, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -234,7 +200,6 @@ function RunwayDiagram({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {highlighted && highlighted.headwind !== undefined && highlighted.crosswind !== undefined && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
-                <div style={{ padding: '10px 12px', borderRadius: 10, background: '#0d9488', color: '#ecfeff', fontWeight: 900, boxShadow: '0 8px 18px rgba(13,148,136,0.28)' }}>
                 <div style={{ padding: '10px 12px', borderRadius: 10, background: '#16a34a', color: '#f8fafc', fontWeight: 900, boxShadow: '0 8px 18px rgba(22,163,74,0.25)' }}>
                   <div style={{ fontSize: 11, opacity: 0.9, letterSpacing: 0.2 }}>BEST</div>
                   <div style={{ fontSize: 18 }}>
@@ -248,13 +213,11 @@ function RunwayDiagram({
                     {highlighted.heading ? `Aligned ${highlighted.heading.toFixed(0)}° / ${((highlighted.heading + 180) % 360 || 360).toFixed(0)}°` : 'Heading unavailable'}
                   </div>
                 </div>
-                <div style={{ padding: '10px 12px', borderRadius: 10, background: '#eef2ff', color: '#1e1b4b', fontWeight: 800, border: '1px solid #dfe3ff' }}>
                 <div style={{ padding: '10px 12px', borderRadius: 10, background: '#eef2ff', color: '#312e81', fontWeight: 800, border: '1px solid #e0e7ff' }}>
                   <div style={{ fontSize: 11, opacity: 0.8, letterSpacing: 0.2 }}>HEADWIND</div>
                   <div style={{ fontSize: 18 }}>{highlighted.headwind} kt</div>
                   <div style={{ fontSize: 12, opacity: 0.8 }}>from {windDir.toString().padStart(3, '0')}°</div>
                 </div>
-                <div style={{ padding: '10px 12px', borderRadius: 10, background: '#e0f2fe', color: '#0f172a', fontWeight: 800, border: '1px solid #b6e0fe' }}>
                 <div style={{ padding: '10px 12px', borderRadius: 10, background: '#e0f2fe', color: '#0f172a', fontWeight: 800, border: '1px solid #bae6fd' }}>
                   <div style={{ fontSize: 11, opacity: 0.8, letterSpacing: 0.2 }}>CROSSWIND</div>
                   <div style={{ fontSize: 18 }}>{Math.abs(highlighted.crosswind)} kt</div>
@@ -269,7 +232,6 @@ function RunwayDiagram({
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <div style={{ fontWeight: 800 }}>{runway.id}</div>
                     {runway.bestEnd && runway.id === highlighted?.id && (
-                      <span style={{ fontSize: 10, fontWeight: 800, padding: '4px 8px', borderRadius: 999, background: '#d1fae5', color: '#065f46' }}>
                       <span style={{ fontSize: 10, fontWeight: 800, padding: '4px 8px', borderRadius: 999, background: '#dcfce7', color: '#166534' }}>
                         Favored
                       </span>
@@ -284,7 +246,6 @@ function RunwayDiagram({
                   </div>
                   {runway.headwind !== undefined && runway.crosswind !== undefined && (
                     <div style={{ fontSize: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: 700, color: '#0f766e' }}>{runway.headwind} kt headwind</span>
                       <span style={{ fontWeight: 700, color: '#166534' }}>{runway.headwind} kt headwind</span>
                       <span style={{ fontWeight: 700, color: '#0f172a' }}>{Math.abs(runway.crosswind)} kt crosswind</span>
                     </div>
@@ -302,23 +263,6 @@ function RunwayDiagram({
               <text x={24} y={center + 3} textAnchor="middle" fontSize="11" fill="#475569" fontWeight={700}>W</text>
               <text x={size - 24} y={center + 3} textAnchor="middle" fontSize="11" fill="#475569" fontWeight={700}>E</text>
 
-              {/* Wind arrow (from X toward reciprocal) */}
-              <g>
-                <line
-                  x1={arrowTail.x}
-                  y1={arrowTail.y}
-                  x2={arrowHead.x}
-                  y2={arrowHead.y}
-                  stroke="#0ea5e9"
-                  strokeWidth={6}
-                  strokeLinecap="round"
-                  opacity={0.9}
-                />
-                <polygon
-                  points={`${arrowHead.x},${arrowHead.y} ${arrowLeft.x},${arrowLeft.y} ${arrowRight.x},${arrowRight.y}`}
-                  fill="#0284c7"
-                />
-                <circle cx={arrowTail.x} cy={arrowTail.y} r={5} fill="#0ea5e9" />
               {/* Wind arrow (coming from) */}
               <g transform={`translate(${center}, ${center}) rotate(${windDir - 90})`}>
                 <line x1={0} y1={-radius} x2={0} y2={radius * 0.18} stroke="#16a34a" strokeWidth={5} strokeLinecap="round" />
@@ -963,16 +907,16 @@ export default function WeatherPage() {
                           <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.7, marginBottom: 12 }}>
                             HOURLY FORECAST
                           </div>
-                          <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, fontSize: 12, boxShadow: '0 10px 30px rgba(15,23,42,0.08)', borderRadius: 12, overflow: 'hidden' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                             <thead>
-                              <tr style={{ background: '#f8fafc', color: '#0f172a' }}>
-                                <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontWeight: 800, minWidth: 110 }}>Zulu (UTC)</th>
-                                <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontWeight: 800, minWidth: 110 }}>Local time</th>
-                                <th style={{ padding: '10px 12px', textAlign: 'center', borderBottom: '1px solid #e5e7eb', fontWeight: 800, minWidth: 80 }}>Wind</th>
-                                <th style={{ padding: '10px 12px', textAlign: 'center', borderBottom: '1px solid #e5e7eb', fontWeight: 800, minWidth: 60 }}>Vis</th>
-                                <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontWeight: 800, minWidth: 120 }}>Weather</th>
-                                <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '1px solid #e5e7eb', fontWeight: 800, minWidth: 150 }}>Clouds</th>
-                                <th style={{ padding: '10px 12px', textAlign: 'center', borderBottom: '1px solid #e5e7eb', fontWeight: 800, minWidth: 60 }}>Cat</th>
+                              <tr style={{ background: '#f3f4f6' }}>
+                                <th style={{ padding: '8px 10px', textAlign: 'left', border: '1px solid #ddd', fontWeight: 800, minWidth: 80 }}>Zulu</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'left', border: '1px solid #ddd', fontWeight: 800, minWidth: 80 }}>Local</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'center', border: '1px solid #ddd', fontWeight: 800, minWidth: 80 }}>Wind</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'center', border: '1px solid #ddd', fontWeight: 800, minWidth: 60 }}>Vis</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'left', border: '1px solid #ddd', fontWeight: 800, minWidth: 120 }}>Weather</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'left', border: '1px solid #ddd', fontWeight: 800, minWidth: 150 }}>Clouds</th>
+                                <th style={{ padding: '8px 10px', textAlign: 'center', border: '1px solid #ddd', fontWeight: 800, minWidth: 60 }}>Cat</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -1038,36 +982,32 @@ export default function WeatherPage() {
                                 // Determine row color based on hour
                                 const now = new Date();
                                 const isCurrent = hour <= now && now < new Date(hour.getTime() + 60 * 60 * 1000);
-                                const bgColor = isCurrent ? '#ecfeff' : (i % 2 === 0 ? '#fff' : '#f8fafc');
-
-                                const zuluDate = new Date(hour.getTime() - hour.getTimezoneOffset() * 60000);
-                                const zuluLabel = format(zuluDate, 'dd HH:mm') + 'Z';
-                                const localLabel = format(hour, 'dd HH:mm');
+                                const bgColor = isCurrent ? '#dbeafe' : (i % 2 === 0 ? '#fff' : '#fafafa');
 
                                 return (
                                   <tr key={i} style={{ background: bgColor }}>
                                     {/* Zulu Time */}
-                                    <td style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontFamily: 'monospace', fontSize: 11, fontWeight: isCurrent ? 800 : 600 }}>
-                                      {zuluLabel}
-                                      {isCurrent && <span style={{ marginLeft: 6, color: '#0284c7' }}>●</span>}
+                                    <td style={{ padding: '6px 10px', border: '1px solid #ddd', fontFamily: 'monospace', fontSize: 11, fontWeight: isCurrent ? 800 : 600 }}>
+                                      {format(new Date(hour.toUTCString()), 'dd HH:mm')}Z
+                                      {isCurrent && <span style={{ marginLeft: 6, color: '#2563eb' }}>●</span>}
                                     </td>
                                     {/* Local Time */}
-                                    <td style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontFamily: 'monospace', fontSize: 11, fontWeight: isCurrent ? 800 : 600, color: '#475569' }}>
-                                      {localLabel}
+                                    <td style={{ padding: '6px 10px', border: '1px solid #ddd', fontFamily: 'monospace', fontSize: 11, fontWeight: isCurrent ? 800 : 600, color: '#64748b' }}>
+                                      {format(hour, 'dd HH:mm')}
                                     </td>
-                                    <td style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontFamily: 'monospace', fontSize: 11, textAlign: 'center' }}>
+                                    <td style={{ padding: '6px 10px', border: '1px solid #ddd', fontFamily: 'monospace', fontSize: 11, textAlign: 'center' }}>
                                       {windStr}
                                     </td>
-                                    <td style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontFamily: 'monospace', fontSize: 11, textAlign: 'center' }}>
+                                    <td style={{ padding: '6px 10px', border: '1px solid #ddd', fontFamily: 'monospace', fontSize: 11, textAlign: 'center' }}>
                                       {visStr}
                                     </td>
-                                    <td style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: 11 }}>
+                                    <td style={{ padding: '6px 10px', border: '1px solid #ddd', fontSize: 11 }}>
                                       {wxStr}
                                     </td>
-                                    <td style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', fontSize: 11 }}>
+                                    <td style={{ padding: '6px 10px', border: '1px solid #ddd', fontSize: 11 }}>
                                       {cloudsStr}
                                     </td>
-                                    <td style={{ padding: '10px 12px', borderBottom: '1px solid #e5e7eb', textAlign: 'center' }}>
+                                    <td style={{ padding: '6px 10px', border: '1px solid #ddd', textAlign: 'center' }}>
                                       <span style={{
                                         padding: '2px 8px',
                                         borderRadius: 4,
