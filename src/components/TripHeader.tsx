@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useMemo, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useFlightSession } from '../context/FlightSessionContext';
 
 const COLORS = {
@@ -11,15 +11,17 @@ const COLORS = {
   warning: '#f59e0b',
 };
 
-const STEP_LABELS: Record<string, string> = {
+const STEP_LABELS = {
   aircraft: 'Aircraft',
   weightBalance: 'W&B',
   performance: 'Performance',
   weather: 'Weather',
   navlog: 'Navlog',
-};
+} as const;
 
-const STEP_ROUTES: Record<keyof typeof STEP_LABELS, string> = {
+type Step = keyof typeof STEP_LABELS;
+
+const STEP_ROUTES: Record<Step, string> = {
   aircraft: '/aircraft',
   weightBalance: '/wb',
   performance: '/performance',
@@ -27,18 +29,53 @@ const STEP_ROUTES: Record<keyof typeof STEP_LABELS, string> = {
   navlog: '/navlog',
 };
 
-export function TripHeader() {
-  const { currentSession, getNextStep } = useFlightSession();
-  const navigate = useNavigate();
+const STEP_ROUTE_ENTRIES = Object.entries(STEP_ROUTES) as Array<[Step, string]>;
+const STEP_ORDER: Step[] = ['aircraft', 'weightBalance', 'performance', 'weather', 'navlog'];
 
-  const nextStep = currentSession ? getNextStep() : null;
+function getStepFromPath(pathname: string): Step | null {
+  const match = STEP_ROUTE_ENTRIES.find(([, path]) => pathname.startsWith(path));
+  return match ? match[0] : null;
+}
+
+export function TripHeader() {
+  const { currentSession, getNextStep, completeStep } = useFlightSession();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const nextStep = (currentSession ? getNextStep() : null) as Step | null;
+  const activeStep = useMemo<Step | null>(() => getStepFromPath(location.pathname), [location.pathname]);
 
   const incomplete = useMemo(() => {
     if (!currentSession) return [];
-    return (Object.entries(currentSession.completed) as Array<[keyof typeof STEP_LABELS, boolean]>)
+    return (Object.entries(currentSession.completed) as Array<[Step, boolean]>)
       .filter(([, done]) => !done)
       .map(([key]) => key);
   }, [currentSession]);
+
+  const getNextStepAfterCompleting = useCallback(
+    (completedStep: Step | null) => {
+      if (!currentSession) return null;
+
+      return (
+        STEP_ORDER.find((step) => {
+          const isComplete = step === completedStep ? true : currentSession.completed[step];
+          return !isComplete;
+        }) ?? null
+      );
+    },
+    [currentSession],
+  );
+
+  const handleNavigate = (step: Step) => {
+    if (!currentSession) return;
+
+    if (activeStep) {
+      completeStep(activeStep);
+    }
+
+    const destinationStep = activeStep ? getNextStepAfterCompleting(activeStep) ?? step : step;
+    navigate(STEP_ROUTES[destinationStep]);
+  };
 
   if (!currentSession) return null;
 
@@ -92,7 +129,7 @@ export function TripHeader() {
             </div>
             {nextStep && (
               <button
-                onClick={() => navigate(STEP_ROUTES[nextStep])}
+                onClick={() => handleNavigate(nextStep)}
                 style={{
                   padding: '8px 12px',
                   background: COLORS.primary,
