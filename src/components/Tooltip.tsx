@@ -29,11 +29,12 @@ export function Tooltip({ content, children }: TooltipProps) {
             borderRadius: 8,
             fontSize: 13,
             lineHeight: 1.4,
-            whiteSpace: 'nowrap',
+            whiteSpace: 'normal',
             boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
             zIndex: 1000,
             pointerEvents: 'none',
-            maxWidth: 400,
+            maxWidth: 300,
+            width: 'max-content',
           }}
         >
           {content}
