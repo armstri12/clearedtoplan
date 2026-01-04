@@ -1,10 +1,10 @@
 # Cleared to Plan
 
-A comprehensive flight planning web application for general aviation pilots.
+A simple, focused flight planning web application for VFR pilots.
 
 ## Overview
 
-**Cleared to Plan** is a modern, browser-based flight planning tool that guides pilots through the complete preflight planning process. It provides integrated tools for aircraft weight & balance calculations, performance analysis, weather briefings, and navigation planning.
+**Cleared to Plan** is a browser-based collection of flight planning tools. Access five essential planning tools directly from a simple homepage - no complexity, no distractions.
 
 ### Key Features
 
@@ -13,8 +13,6 @@ A comprehensive flight planning web application for general aviation pilots.
 - **Performance Calculator** - Density altitude and takeoff/landing distance calculations
 - **Weather Briefing** - Live METAR/TAF with hourly forecast breakdowns
 - **Navigation Log** - Build detailed flight plans with fuel, time, and checkpoint calculations
-- **Guided Workflow** - Step-by-step process ensures nothing is missed
-- **Multi-Session Support** - Save and resume multiple flight plans
 - **Offline Capable** - Data stored locally, works without internet (except weather)
 
 ## Technology Stack
@@ -40,7 +38,7 @@ src/
 │   └── FlightSessionContext.tsx  # Flight planning workflow
 │
 ├── features/                # Feature modules (pages)
-│   ├── home/                # Homepage with session management
+│   ├── home/                # Simple homepage with tool links
 │   ├── aircraft/            # Aircraft profile management
 │   ├── weightBalance/       # W&B calculator
 │   ├── performance/         # Density altitude & distance calculator
@@ -74,18 +72,17 @@ Each step must be completed before accessing the next. The `FlightSessionContext
 
 ### State Management
 
-**Two main React Contexts:**
+Uses React Context API for state management:
 
 1. **AuthContext** (`src/context/AuthContext.tsx`)
    - Manages user authentication state
    - Provides login/logout functionality
    - Persists auth state to localStorage
    - Currently uses hardcoded credentials (username: `pilot`, password: `cleared2024`)
-   - Ready for backend integration
 
 2. **FlightSessionContext** (`src/context/FlightSessionContext.tsx`)
    - Core state management for flight planning
-   - Stores current session and all saved sessions
+   - Stores current session and saved sessions
    - Enforces workflow order
    - Auto-saves to localStorage
    - Provides update functions for each workflow step
@@ -269,14 +266,13 @@ npm run preview
 
 ### Quick Start
 
-1. **Login** - Use credentials: `pilot` / `cleared2024`
-2. **Start Session** - Click "New Flight Plan" and give it a name
-3. **Follow Workflow:**
-   - **Aircraft** - Select or create aircraft profile
-   - **Weight & Balance** - Enter payload and fuel
-   - **Performance** - Calculate density altitude and distances
-   - **Weather** - Fetch current weather for route
-   - **Navlog** - Build navigation log
+1. **Access Homepage** - Navigate to the application
+2. **Select Tool** - Click on any of the five planning tools:
+   - **Aircraft** - Configure aircraft profile with W&B and performance data
+   - **Weight & Balance** - Calculate loading and CG position
+   - **Performance** - Calculate density altitude and takeoff/landing distances
+   - **Weather** - Fetch current METAR & TAF for your route
+   - **Navlog** - Build navigation log with fuel and time calculations
 
 ### Debug Mode
 

@@ -4,7 +4,6 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { FlightSessionProvider } from './context/FlightSessionContext';
 import { AuthProvider } from './context/AuthContext';
-import { FlightPlanProvider } from './stores/flightPlan';
 import './print.css';
 
 
@@ -13,9 +12,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <AuthProvider>
         <FlightSessionProvider>
-          <FlightPlanProvider>
-            <App />
-          </FlightPlanProvider>
+          <App />
         </FlightSessionProvider>
       </AuthProvider>
     </BrowserRouter>

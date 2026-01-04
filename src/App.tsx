@@ -11,12 +11,6 @@ import { WorkflowGuard } from './components/WorkflowGuard';
 import { TripHeader } from './components/TripHeader';
 import { useAuth } from './context/AuthContext';
 import { useFlightSession, type FlightSession } from './context/FlightSessionContext';
-import { TripWizardLayout } from './components/TripWizard/TripWizardLayout';
-import { StepGuard } from './components/TripWizard/StepGuard';
-import { BasicsStep } from './components/TripWizard/steps/BasicsStep';
-import { WeatherStep } from './components/TripWizard/steps/WeatherStep';
-import { PerformanceStep } from './components/TripWizard/steps/PerformanceStep';
-import { ExportBriefStep } from './components/TripWizard/steps/ExportBriefStep';
 
 // Consistent color scheme
 const COLORS = {
@@ -392,44 +386,6 @@ export default function App() {
     <Layout>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route path="/trip-wizard" element={<TripWizardLayout />}>
-          <Route
-            index
-            element=
-              {(
-                <StepGuard step="basics">
-                  <BasicsStep />
-                </StepGuard>
-              )}
-          />
-          <Route
-            path="weather"
-            element=
-              {(
-                <StepGuard step="weather">
-                  <WeatherStep />
-                </StepGuard>
-              )}
-          />
-          <Route
-            path="performance"
-            element=
-              {(
-                <StepGuard step="performance">
-                  <PerformanceStep />
-                </StepGuard>
-              )}
-          />
-          <Route
-            path="export"
-            element=
-              {(
-                <StepGuard step="export">
-                  <ExportBriefStep />
-                </StepGuard>
-              )}
-          />
-        </Route>
         <Route
           path="/aircraft"
           element={
