@@ -23,6 +23,7 @@ export default function HomePage() {
   const [newEtd, setNewEtd] = useState('');
   const [newEta, setNewEta] = useState('');
   const [newLessonType, setNewLessonType] = useState('');
+  const [activeWizardTab, setActiveWizardTab] = useState<'basics' | 'weather' | 'performance' | 'export'>('basics');
 
   function handleStartNewSession() {
     if (!newSessionName.trim()) return;
@@ -89,6 +90,24 @@ export default function HomePage() {
             >
               Start Flight Planning →
             </button>
+            <Link
+              to="/trip-wizard"
+              style={{
+                padding: '16px 32px',
+                background: '#0f172a',
+                color: '#fff',
+                borderRadius: 12,
+                fontWeight: 700,
+                fontSize: 18,
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
+              }}
+            >
+              ✨ Try the Trip Wizard
+            </Link>
             <a
               href="https://donate.stripe.com/test_00000000" // Replace with actual donate link
               target="_blank"
@@ -116,6 +135,96 @@ export default function HomePage() {
             >
               ☕ Support This Project
             </a>
+          </div>
+        </div>
+      </div>
+
+      {/* Trip Wizard spotlight */}
+      <div style={{ maxWidth: 1200, margin: '-60px auto 0', padding: '0 24px 40px' }}>
+        <div
+          style={{
+            background: '#0f172a',
+            color: '#e2e8f0',
+            borderRadius: 20,
+            padding: 24,
+            boxShadow: '0 20px 45px rgba(15,23,42,0.25)',
+          }}
+        >
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ flex: '1 1 320px' }}>
+              <p style={{ margin: 0, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 800, color: '#93c5fd' }}>
+                New
+              </p>
+              <h2 style={{ margin: '4px 0 8px', fontSize: 28, fontWeight: 900, color: '#fff' }}>Trip Wizard</h2>
+              <p style={{ margin: 0, color: '#cbd5e1', lineHeight: 1.5 }}>
+                A guided, multi-step experience that walks you through basics, weather/NOTAMs, performance/loading, and a ready-to-print brief.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <Link
+                to="/trip-wizard"
+                style={{
+                  padding: '14px 24px',
+                  background: '#22c55e',
+                  color: '#0f172a',
+                  borderRadius: 12,
+                  fontWeight: 800,
+                  textDecoration: 'none',
+                  boxShadow: '0 10px 30px rgba(34,197,94,0.25)',
+                }}
+              >
+                Launch Wizard →
+              </Link>
+              <Link
+                to={`/trip-wizard${activeWizardTab === 'basics' ? '' : `/${activeWizardTab}`}`}
+                style={{
+                  padding: '14px 24px',
+                  background: 'rgba(255,255,255,0.08)',
+                  color: '#e2e8f0',
+                  borderRadius: 12,
+                  fontWeight: 700,
+                  textDecoration: 'none',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                }}
+              >
+                Open {activeWizardTab === 'basics' ? 'Basics' : activeWizardTab === 'weather' ? 'Weather' : activeWizardTab === 'performance' ? 'Performance' : 'Export'}
+              </Link>
+            </div>
+          </div>
+
+          <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+            {[
+              { id: 'basics', title: 'Basics', desc: 'Route, crew, timing', to: '/trip-wizard' },
+              { id: 'weather', title: 'Weather / NOTAMs', desc: 'METARs, TAFs, notes', to: '/trip-wizard/weather' },
+              { id: 'performance', title: 'Performance / Loading', desc: 'DA, runway, payload', to: '/trip-wizard/performance' },
+              { id: 'export', title: 'Export / Brief', desc: 'Printable + Markdown brief', to: '/trip-wizard/export' },
+            ].map((tab) => {
+              const isActive = activeWizardTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveWizardTab(tab.id as typeof activeWizardTab)}
+                  style={{
+                    padding: 14,
+                    borderRadius: 12,
+                    border: `2px solid ${isActive ? '#93c5fd' : 'rgba(255,255,255,0.15)'}`,
+                    background: isActive ? 'rgba(147,197,253,0.08)' : 'rgba(255,255,255,0.04)',
+                    color: '#e2e8f0',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  <div style={{ fontWeight: 800, color: '#fff', marginBottom: 4 }}>{tab.title}</div>
+                  <div style={{ fontSize: 13, color: '#cbd5e1' }}>{tab.desc}</div>
+                  <div style={{ marginTop: 8, fontSize: 12, color: '#93c5fd' }}>
+                    <Link to={tab.to} style={{ color: 'inherit', textDecoration: 'underline' }}>
+                      Jump to {tab.title}
+                    </Link>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
