@@ -56,6 +56,24 @@ export default function HomePage() {
             >
               Start Flight Planning →
             </button>
+            <Link
+              to="/trip-wizard"
+              style={{
+                padding: '16px 32px',
+                background: '#0f172a',
+                color: '#fff',
+                borderRadius: 12,
+                fontWeight: 700,
+                fontSize: 18,
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
+              }}
+            >
+              ✨ Try the Trip Wizard
+            </Link>
             <a
               href="https://donate.stripe.com/test_00000000"
               target="_blank"
