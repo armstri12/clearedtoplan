@@ -12,10 +12,23 @@ export async function downloadElementAsPdf(element: HTMLElement, filename = 'fli
   ]);
   const { jsPDF } = jspdfModule;
 
-  const canvas = await html2canvas(element, { scale: 2, useCORS: true });
+  if (!pdfWindow.html2canvas || !pdfWindow.jspdf?.jsPDF) {
+    throw new Error('PDF deps failed to load');
+  }
+}
+
+export async function downloadElementAsPdf(element: HTMLElement, filename = 'flight-brief.pdf') {
+  const pdfWindow = window as typeof window & {
+    html2canvas?: (element: HTMLElement, options?: Record<string, unknown>) => Promise<HTMLCanvasElement>;
+    jspdf?: { jsPDF: typeof import('jspdf').jsPDF };
+  };
+
+  await ensurePdfDeps();
+
+  const canvas = await pdfWindow.html2canvas!(element, { scale: 2, useCORS: true });
   const imgData = canvas.toDataURL('image/png');
 
-  const pdf = new jsPDF('p', 'pt', 'a4');
+  const pdf = new pdfWindow.jspdf!.jsPDF('p', 'pt', 'a4');
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
 
