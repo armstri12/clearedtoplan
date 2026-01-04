@@ -1,110 +1,103 @@
 # Cleared to Plan
 
-**The simplest digital flight planning checklist for VFR pilots**
+A comprehensive flight planning web application for general aviation pilots.
 
 ## Overview
 
-**Cleared to Plan** is a streamlined, browser-based flight planning tool that guides pilots through essential preflight planning. Version 2.0 represents a major simplification focused on core functionality through a clean 4-step wizard interface.
+**Cleared to Plan** is a modern, browser-based flight planning tool that guides pilots through the complete preflight planning process. It provides integrated tools for aircraft weight & balance calculations, performance analysis, weather briefings, and navigation planning.
 
-## What Changed in v2.0 (Simplification Update)
+### Key Features
 
-This version eliminates architectural complexity and refocuses on what matters:
-
-### ✅ **What Was Removed**
-- ❌ Dual state management systems (FlightSessionContext removed, Zustand kept)
-- ❌ Dual user flows (old workflow removed, wizard-only now)
-- ❌ Fake authentication system (no more login/logout)
-- ❌ Workflow enforcement guards
-- ❌ Complex weather API nearest-TAF search (150nm radius searches)
-- ❌ Custom aircraft editor (template-based now)
-- ❌ 5 separate workflow pages (Aircraft, W&B, Performance, Weather, Navlog)
-- ❌ Excessive logging and debugging code
-
-### ✅ **What Remains (The Good Stuff)**
-- ✅ Clean 4-step wizard: Basics → Weather → Performance → Export
-- ✅ Real-time METAR/TAF weather data
-- ✅ Weight & balance calculations with envelope validation
-- ✅ Density altitude and takeoff/landing distance calculations
-- ✅ PDF and Markdown briefing export
-- ✅ Browser-based storage (no server needed)
-
-### 📊 **Impact**
-- **~2,500 lines of code removed** (~50% reduction)
-- **Reduced from 12K to ~9.5K LOC**
-- **50% easier to maintain**
-- **Single state system** (Zustand only)
-- **One clear user flow** (wizard-based)
-- **Weather API simplified** (597 → 297 lines)
+- **Aircraft Profiles** - Store and manage aircraft with complete W&B and performance data
+- **Weight & Balance Calculator** - Real-time W&B calculations with graphical envelope display
+- **Performance Calculator** - Density altitude and takeoff/landing distance calculations
+- **Weather Briefing** - Live METAR/TAF with hourly forecast breakdowns
+- **Navigation Log** - Build detailed flight plans with fuel, time, and checkpoint calculations
+- **Guided Workflow** - Step-by-step process ensures nothing is missed
+- **Multi-Session Support** - Save and resume multiple flight plans
+- **Offline Capable** - Data stored locally, works without internet (except weather)
 
 ## Technology Stack
 
-- **Frontend**: React 19 with TypeScript 5.9 (strict mode)
-- **Build Tool**: Vite 7
-- **Routing**: React Router v7
-- **State Management**: Zustand (lightweight)
+- **Frontend Framework**: React 18 with TypeScript
+- **Build Tool**: Vite
+- **Routing**: React Router v6
+- **State Management**: React Context API
 - **Data Persistence**: Browser localStorage
-- **Weather API**: AviationWeather.gov via Cloudflare Worker proxy
+- **Weather API**: AviationWeather.gov (NOAA)
 - **TAF Parsing**: metar-taf-parser library
-- **Styling**: Inline styles
+- **Styling**: Inline styles with modern CSS (no external CSS framework)
 
-## Project Structure (Simplified)
+## Project Structure
 
 ```
 src/
 ├── main.tsx                 # Application entry point
-├── App.tsx                  # Root component with routing (simplified)
+├── App.tsx                  # Root component with routing
 │
-├── features/
-│   └── home/
-│       └── HomePage.tsx     # Landing page
+├── context/                 # Global state management
+│   ├── AuthContext.tsx      # User authentication
+│   └── FlightSessionContext.tsx  # Flight planning workflow
 │
-├── components/
-│   └── TripWizard/          # 4-step wizard interface
-│       ├── TripWizardLayout.tsx
-│       ├── StepGuard.tsx
-│       └── steps/
-│           ├── BasicsStep.tsx      # Step 1: Route & aircraft
-│           ├── WeatherStep.tsx     # Step 2: METAR/TAF
-│           ├── PerformanceStep.tsx # Step 3: W&B & performance
-│           └── ExportBriefStep.tsx # Step 4: PDF/Markdown export
+├── features/                # Feature modules (pages)
+│   ├── home/                # Homepage with session management
+│   ├── aircraft/            # Aircraft profile management
+│   ├── weightBalance/       # W&B calculator
+│   ├── performance/         # Density altitude & distance calculator
+│   ├── weather/             # Weather briefing (METAR/TAF)
+│   └── navlog/              # Navigation log builder
 │
-├── stores/
-│   └── flightPlan.ts        # Zustand store (single state management)
+├── components/              # Shared components
+│   ├── WorkflowGuard.tsx    # Route protection/workflow enforcement
+│   └── WorkflowProgress.tsx # Progress indicator
 │
-├── services/
-│   └── aviationApi.ts       # Weather API client (simplified)
+├── services/                # External integrations
+│   └── aviationApi.ts       # AviationWeather.gov API client
 │
-└── lib/                     # Utilities
-    ├── math/                # W&B envelope, geometry
-    ├── performance/         # Takeoff/landing calculations
-    ├── briefing/            # PDF/markdown export
-    └── storage/             # localStorage helpers
+└── lib/                     # Utility libraries
+    ├── math/                # Mathematical utilities
+    ├── storage/             # localStorage helpers
+    └── utils.ts             # General utilities
 ```
 
 ## Architecture
 
-### User Flow (Wizard-Based)
+### Flight Planning Workflow
 
-Simple 4-step wizard guides pilots through flight planning:
+The application enforces a step-by-step workflow to ensure complete flight planning:
 
 ```
-Home → Trip Wizard → [Basics → Weather → Performance → Export] → PDF/Markdown
+1. Aircraft → 2. Weight & Balance → 3. Performance → 4. Weather → 5. Navlog
 ```
+
+Each step must be completed before accessing the next. The `FlightSessionContext` manages this workflow and stores all planning data.
 
 ### State Management
 
-**Single Zustand Store** (`src/stores/flightPlan.ts`):
-- Manages all flight planning data in one place
-- 5 main slices: basics, weather, performance, loading, brief
-- Automatic persistence to localStorage
-- No workflow guards - wizard UI enforces order naturally
+**Two main React Contexts:**
+
+1. **AuthContext** (`src/context/AuthContext.tsx`)
+   - Manages user authentication state
+   - Provides login/logout functionality
+   - Persists auth state to localStorage
+   - Currently uses hardcoded credentials (username: `pilot`, password: `cleared2024`)
+   - Ready for backend integration
+
+2. **FlightSessionContext** (`src/context/FlightSessionContext.tsx`)
+   - Core state management for flight planning
+   - Stores current session and all saved sessions
+   - Enforces workflow order
+   - Auto-saves to localStorage
+   - Provides update functions for each workflow step
 
 ### Data Persistence
 
-Browser localStorage (single simplified structure):
-- **Flight plans**: Stored in Zustand store, auto-persisted
-- **No user accounts**: Removed authentication complexity
-- **No session management**: Wizard state is ephemeral (resets on reload)
+All data is stored locally using browser localStorage:
+
+- **Aircraft profiles**: `clearedtoplan_profiles`
+- **Flight sessions**: `clearedtoplan_sessions`
+- **Current session**: `clearedtoplan_current_session`
+- **User authentication**: `clearedtoplan_user`
 
 No backend or database required - the app runs entirely client-side.
 
