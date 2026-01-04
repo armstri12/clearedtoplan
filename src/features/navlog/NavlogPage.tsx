@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { clamp } from '../../lib/utils';
 import { useFlightSession } from '../../context/FlightSessionContext';
+import { Tooltip } from '../../components/Tooltip';
 
 const COLORS = {
   primary: '#2563eb',
@@ -616,27 +617,41 @@ export default function NavlogPage() {
                 <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700 }}>WND kt</th>
                 <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700 }}>VAR</th>
                 <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700 }}>DEV</th>
-                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#eff6ff' }}>
-                  WCA
-                </th>
-                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#eff6ff' }}>
-                  TH
-                </th>
-                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#eff6ff' }}>
-                  MH
-                </th>
-                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#eff6ff' }}>
-                  CH
-                </th>
-                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#fef3c7' }}>
-                  GS
-                </th>
-                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#fef3c7' }}>
-                  ETE
-                </th>
-                <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#fef3c7' }}>
-                  FUEL
-                </th>
+                <Tooltip content="Wind Correction Angle: Calculated angle to correct for crosswind drift">
+                  <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#eff6ff', cursor: 'help' }}>
+                    WCA ⓘ
+                  </th>
+                </Tooltip>
+                <Tooltip content="True Heading: TC + WCA. Heading relative to true north after wind correction.">
+                  <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#eff6ff', cursor: 'help' }}>
+                    TH ⓘ
+                  </th>
+                </Tooltip>
+                <Tooltip content="Magnetic Heading: TH + VAR. Heading relative to magnetic north.">
+                  <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#eff6ff', cursor: 'help' }}>
+                    MH ⓘ
+                  </th>
+                </Tooltip>
+                <Tooltip content="Compass Heading: MH + DEV. Heading to fly on your compass.">
+                  <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#eff6ff', cursor: 'help' }}>
+                    CH ⓘ
+                  </th>
+                </Tooltip>
+                <Tooltip content="Ground Speed: TAS adjusted for wind. Distance covered over ground per hour.">
+                  <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#fef3c7', cursor: 'help' }}>
+                    GS ⓘ
+                  </th>
+                </Tooltip>
+                <Tooltip content="Estimated Time Enroute: Distance ÷ Ground Speed">
+                  <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#fef3c7', cursor: 'help' }}>
+                    ETE ⓘ
+                  </th>
+                </Tooltip>
+                <Tooltip content="Fuel Required: (ETE in hours) × Fuel Burn Rate (GPH)">
+                  <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700, background: '#fef3c7', cursor: 'help' }}>
+                    FUEL ⓘ
+                  </th>
+                </Tooltip>
                 <th style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}`, fontWeight: 700 }}>REMARKS</th>
                 <th className="no-print" style={{ padding: 8, borderBottom: `2px solid ${COLORS.primary}` }}></th>
               </tr>
@@ -893,12 +908,16 @@ export default function NavlogPage() {
             <div>
               <strong>Fuel Onboard:</strong> {flightPlan.fuelOnboard} gal
             </div>
-            <div>
-              <strong>Total Distance:</strong> {computed.totalDist.toFixed(1)} nm
-            </div>
-            <div>
-              <strong>Total Fuel Required:</strong> {computed.totalFuel.toFixed(1)} gal
-            </div>
+            <Tooltip content="Sum of all leg distances in nautical miles">
+              <div style={{ cursor: 'help' }}>
+                <strong>Total Distance ⓘ:</strong> {computed.totalDist.toFixed(1)} nm
+              </div>
+            </Tooltip>
+            <Tooltip content="Sum of all leg fuel requirements in gallons">
+              <div style={{ cursor: 'help' }}>
+                <strong>Total Fuel Required ⓘ:</strong> {computed.totalFuel.toFixed(1)} gal
+              </div>
+            </Tooltip>
           </div>
         </div>
       </div>

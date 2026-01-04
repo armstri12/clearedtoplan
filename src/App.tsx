@@ -7,7 +7,6 @@ import NavlogPage from './features/navlog/NavlogPage';
 import PerformancePage from './features/performance/PerformancePage';
 import WeatherPage from './features/weather/WeatherPage';
 import { WorkflowProgress } from './components/WorkflowProgress';
-import { WorkflowGuard } from './components/WorkflowGuard';
 import { TripHeader } from './components/TripHeader';
 import { useAuth } from './context/AuthContext';
 import { useFlightSession, type FlightSession } from './context/FlightSessionContext';
@@ -386,46 +385,11 @@ export default function App() {
     <Layout>
       <Routes>
         <Route path="/" element={<HomePage />} />
-        <Route
-          path="/aircraft"
-          element={
-            <WorkflowGuard step="aircraft">
-              <AircraftPage />
-            </WorkflowGuard>
-          }
-        />
-        <Route
-          path="/wb"
-          element={
-            <WorkflowGuard step="weightBalance">
-              <WeightBalancePage />
-            </WorkflowGuard>
-          }
-        />
-        <Route
-          path="/performance"
-          element={
-            <WorkflowGuard step="performance">
-              <PerformancePage />
-            </WorkflowGuard>
-          }
-        />
-        <Route
-          path="/weather"
-          element={
-            <WorkflowGuard step="weather">
-              <WeatherPage />
-            </WorkflowGuard>
-          }
-        />
-        <Route
-          path="/navlog"
-          element={
-            <WorkflowGuard step="navlog">
-              <NavlogPage />
-            </WorkflowGuard>
-          }
-        />
+        <Route path="/aircraft" element={<AircraftPage />} />
+        <Route path="/wb" element={<WeightBalancePage />} />
+        <Route path="/performance" element={<PerformancePage />} />
+        <Route path="/weather" element={<WeatherPage />} />
+        <Route path="/navlog" element={<NavlogPage />} />
       </Routes>
     </Layout>
   );

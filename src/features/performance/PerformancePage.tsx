@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useFlightSession } from '../../context/FlightSessionContext';
 import { calculateLandingDistance, calculateTakeoffDistance, getRunwaySafetyLevel } from '../../lib/performance/takeoffLanding';
 import { getMetar, parseIcaoCode, type MetarData } from '../../services/aviationApi';
+import { Tooltip } from '../../components/Tooltip';
 
 // Standard atmosphere constants
 const ISA_SEA_LEVEL_TEMP_C = 15; // °C
@@ -503,51 +504,60 @@ export default function PerformancePage() {
           <h3 style={{ marginTop: 0 }}>Results</h3>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div
-              style={{
-                padding: 12,
-                borderRadius: 8,
-                background: '#f3f4f6',
-                border: '1px solid #e5e7eb',
-              }}
-            >
-              <div style={{ fontSize: 12, opacity: 0.8 }}>Pressure Altitude</div>
-              <div style={{ fontSize: 24, fontWeight: 900 }}>
-                {results.pressureAlt.toLocaleString()} ft
+            <Tooltip content="Formula: PA = Field Elevation + (29.92 - Altimeter Setting) × 1000">
+              <div
+                style={{
+                  padding: 12,
+                  borderRadius: 8,
+                  background: '#f3f4f6',
+                  border: '1px solid #e5e7eb',
+                  cursor: 'help',
+                }}
+              >
+                <div style={{ fontSize: 12, opacity: 0.8 }}>Pressure Altitude ⓘ</div>
+                <div style={{ fontSize: 24, fontWeight: 900 }}>
+                  {results.pressureAlt.toLocaleString()} ft
+                </div>
               </div>
-            </div>
+            </Tooltip>
 
-            <div
-              style={{
-                padding: 12,
-                borderRadius: 8,
-                background: '#dbeafe',
-                border: '1px solid #93c5fd',
-              }}
-            >
-              <div style={{ fontSize: 12, opacity: 0.8 }}>ISA Temperature at this altitude</div>
-              <div style={{ fontSize: 20, fontWeight: 700 }}>
-                {results.isaTemp.toFixed(1)}°C / {results.isaTempF}°F
+            <Tooltip content="Formula: ISA Temp = 15°C - (1.98°C × altitude/1000 ft). Standard temperature decreases 2°C per 1000 ft.">
+              <div
+                style={{
+                  padding: 12,
+                  borderRadius: 8,
+                  background: '#dbeafe',
+                  border: '1px solid #93c5fd',
+                  cursor: 'help',
+                }}
+              >
+                <div style={{ fontSize: 12, opacity: 0.8 }}>ISA Temperature at this altitude ⓘ</div>
+                <div style={{ fontSize: 20, fontWeight: 700 }}>
+                  {results.isaTemp.toFixed(1)}°C / {results.isaTempF}°F
+                </div>
+                <div style={{ fontSize: 12, marginTop: 4 }}>
+                  Actual temp is {results.tempDeviation > 0 ? '+' : ''}{results.tempDeviation.toFixed(1)}°C
+                  {results.tempDeviation > 0 ? ' warmer' : ' cooler'} than standard
+                </div>
               </div>
-              <div style={{ fontSize: 12, marginTop: 4 }}>
-                Actual temp is {results.tempDeviation > 0 ? '+' : ''}{results.tempDeviation.toFixed(1)}°C
-                {results.tempDeviation > 0 ? ' warmer' : ' cooler'} than standard
-              </div>
-            </div>
+            </Tooltip>
 
-            <div
-              style={{
-                padding: 16,
-                borderRadius: 12,
-                background: '#fef3c7',
-                border: '2px solid #fbbf24',
-              }}
-            >
-              <div style={{ fontSize: 12, opacity: 0.8, fontWeight: 800 }}>DENSITY ALTITUDE</div>
-              <div style={{ fontSize: 32, fontWeight: 900, color: '#92400e' }}>
-                {results.densityAlt.toLocaleString()} ft
+            <Tooltip content="Formula: DA = PA + 120 × (Temp - ISA Temp). For each °C above standard, add 120 ft to pressure altitude.">
+              <div
+                style={{
+                  padding: 16,
+                  borderRadius: 12,
+                  background: '#fef3c7',
+                  border: '2px solid #fbbf24',
+                  cursor: 'help',
+                }}
+              >
+                <div style={{ fontSize: 12, opacity: 0.8, fontWeight: 800 }}>DENSITY ALTITUDE ⓘ</div>
+                <div style={{ fontSize: 32, fontWeight: 900, color: '#92400e' }}>
+                  {results.densityAlt.toLocaleString()} ft
+                </div>
               </div>
-            </div>
+            </Tooltip>
           </div>
         </div>
       </div>
@@ -589,47 +599,56 @@ export default function PerformancePage() {
         </p>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 12 }}>
-          <div
-            style={{
-              padding: 12,
-              borderRadius: 8,
-              border: '1px solid #e5e7eb',
-              background: '#fafafa',
-            }}
-          >
-            <div style={{ fontSize: 12, opacity: 0.8 }}>Overall Performance</div>
-            <div style={{ fontSize: 24, fontWeight: 900, color: '#dc2626' }}>
-              -{results.perfDegradation}%
+          <Tooltip content="Estimated reduction in overall aircraft performance based on density altitude. Always consult POH charts.">
+            <div
+              style={{
+                padding: 12,
+                borderRadius: 8,
+                border: '1px solid #e5e7eb',
+                background: '#fafafa',
+                cursor: 'help',
+              }}
+            >
+              <div style={{ fontSize: 12, opacity: 0.8 }}>Overall Performance ⓘ</div>
+              <div style={{ fontSize: 24, fontWeight: 900, color: '#dc2626' }}>
+                -{results.perfDegradation}%
+              </div>
             </div>
-          </div>
+          </Tooltip>
 
-          <div
-            style={{
-              padding: 12,
-              borderRadius: 8,
-              border: '1px solid #e5e7eb',
-              background: '#fafafa',
-            }}
-          >
-            <div style={{ fontSize: 12, opacity: 0.8 }}>Takeoff Roll Increase</div>
-            <div style={{ fontSize: 24, fontWeight: 900, color: '#dc2626' }}>
-              +{results.takeoffRollIncrease}%
+          <Tooltip content="Estimated increase in takeoff distance due to density altitude. Rule of thumb: ~10% per 1000 ft DA above field elevation.">
+            <div
+              style={{
+                padding: 12,
+                borderRadius: 8,
+                border: '1px solid #e5e7eb',
+                background: '#fafafa',
+                cursor: 'help',
+              }}
+            >
+              <div style={{ fontSize: 12, opacity: 0.8 }}>Takeoff Roll Increase ⓘ</div>
+              <div style={{ fontSize: 24, fontWeight: 900, color: '#dc2626' }}>
+                +{results.takeoffRollIncrease}%
+              </div>
             </div>
-          </div>
+          </Tooltip>
 
-          <div
-            style={{
-              padding: 12,
-              borderRadius: 8,
-              border: '1px solid #e5e7eb',
-              background: '#fafafa',
-            }}
-          >
-            <div style={{ fontSize: 12, opacity: 0.8 }}>Climb Rate Decrease</div>
-            <div style={{ fontSize: 24, fontWeight: 900, color: '#dc2626' }}>
-              -{results.climbRateDecrease}%
+          <Tooltip content="Estimated reduction in climb rate due to density altitude. High DA significantly reduces rate of climb.">
+            <div
+              style={{
+                padding: 12,
+                borderRadius: 8,
+                border: '1px solid #e5e7eb',
+                background: '#fafafa',
+                cursor: 'help',
+              }}
+            >
+              <div style={{ fontSize: 12, opacity: 0.8 }}>Climb Rate Decrease ⓘ</div>
+              <div style={{ fontSize: 24, fontWeight: 900, color: '#dc2626' }}>
+                -{results.climbRateDecrease}%
+              </div>
             </div>
-          </div>
+          </Tooltip>
         </div>
 
         <div
@@ -809,41 +828,47 @@ export default function PerformancePage() {
           <div style={{ border: '1px solid #ddd', borderRadius: 12, padding: 16 }}>
             <h3 style={{ marginTop: 0, fontSize: 16 }}>Results</h3>
 
-            <div
-              style={{
-                padding: 12,
-                borderRadius: 8,
-                background: '#dbeafe',
-                border: '1px solid #93c5fd',
-                marginBottom: 12,
-              }}
-            >
-              <div style={{ fontSize: 11, opacity: 0.8, fontWeight: 700 }}>GROUND ROLL REQUIRED</div>
-              <div style={{ fontSize: 28, fontWeight: 900, color: '#1e40af' }}>
-                {takeoffResults.groundRoll.toLocaleString()} ft
+            <Tooltip content="Calculated by applying correction factors for wind, runway type/condition, slope, and humidity to POH baseline, then multiplying by safety margin.">
+              <div
+                style={{
+                  padding: 12,
+                  borderRadius: 8,
+                  background: '#dbeafe',
+                  border: '1px solid #93c5fd',
+                  marginBottom: 12,
+                  cursor: 'help',
+                }}
+              >
+                <div style={{ fontSize: 11, opacity: 0.8, fontWeight: 700 }}>GROUND ROLL REQUIRED ⓘ</div>
+                <div style={{ fontSize: 28, fontWeight: 900, color: '#1e40af' }}>
+                  {takeoffResults.groundRoll.toLocaleString()} ft
+                </div>
+                <div style={{ fontSize: 11, marginTop: 4, opacity: 0.8 }}>
+                  Baseline: {takeoffResults.baselineGroundRoll} ft
+                </div>
               </div>
-              <div style={{ fontSize: 11, marginTop: 4, opacity: 0.8 }}>
-                Baseline: {takeoffResults.baselineGroundRoll} ft
-              </div>
-            </div>
+            </Tooltip>
 
-            <div
-              style={{
-                padding: 12,
-                borderRadius: 8,
-                background: '#fef3c7',
-                border: '2px solid #fbbf24',
-                marginBottom: 16,
-              }}
-            >
-              <div style={{ fontSize: 11, opacity: 0.8, fontWeight: 700 }}>DISTANCE OVER 50FT OBSTACLE</div>
-              <div style={{ fontSize: 32, fontWeight: 900, color: '#92400e' }}>
-                {takeoffResults.over50ft.toLocaleString()} ft
+            <Tooltip content="Total distance to clear a 50 ft obstacle. Baseline × correction factors × 1.5 safety margin (AOPA recommended).">
+              <div
+                style={{
+                  padding: 12,
+                  borderRadius: 8,
+                  background: '#fef3c7',
+                  border: '2px solid #fbbf24',
+                  marginBottom: 16,
+                  cursor: 'help',
+                }}
+              >
+                <div style={{ fontSize: 11, opacity: 0.8, fontWeight: 700 }}>DISTANCE OVER 50FT OBSTACLE ⓘ</div>
+                <div style={{ fontSize: 32, fontWeight: 900, color: '#92400e' }}>
+                  {takeoffResults.over50ft.toLocaleString()} ft
+                </div>
+                <div style={{ fontSize: 11, marginTop: 4, opacity: 0.8 }}>
+                  Baseline: {takeoffResults.baselineOver50ft} ft
+                </div>
               </div>
-              <div style={{ fontSize: 11, marginTop: 4, opacity: 0.8 }}>
-                Baseline: {takeoffResults.baselineOver50ft} ft
-              </div>
-            </div>
+            </Tooltip>
 
             <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Corrections Applied:</div>
             {takeoffResults.corrections.length === 0 ? (
@@ -1039,41 +1064,47 @@ export default function PerformancePage() {
           <div style={{ border: '1px solid #ddd', borderRadius: 12, padding: 16 }}>
             <h3 style={{ marginTop: 0, fontSize: 16 }}>Results</h3>
 
-            <div
-              style={{
-                padding: 12,
-                borderRadius: 8,
-                background: '#dbeafe',
-                border: '1px solid #93c5fd',
-                marginBottom: 12,
-              }}
-            >
-              <div style={{ fontSize: 11, opacity: 0.8, fontWeight: 700 }}>GROUND ROLL REQUIRED</div>
-              <div style={{ fontSize: 28, fontWeight: 900, color: '#1e40af' }}>
-                {landingResults.groundRoll.toLocaleString()} ft
+            <Tooltip content="Landing ground roll calculated by applying correction factors for wind, runway type/condition, and slope to POH baseline, then multiplying by safety margin.">
+              <div
+                style={{
+                  padding: 12,
+                  borderRadius: 8,
+                  background: '#dbeafe',
+                  border: '1px solid #93c5fd',
+                  marginBottom: 12,
+                  cursor: 'help',
+                }}
+              >
+                <div style={{ fontSize: 11, opacity: 0.8, fontWeight: 700 }}>GROUND ROLL REQUIRED ⓘ</div>
+                <div style={{ fontSize: 28, fontWeight: 900, color: '#1e40af' }}>
+                  {landingResults.groundRoll.toLocaleString()} ft
+                </div>
+                <div style={{ fontSize: 11, marginTop: 4, opacity: 0.8 }}>
+                  Baseline: {landingResults.baselineGroundRoll} ft
+                </div>
               </div>
-              <div style={{ fontSize: 11, marginTop: 4, opacity: 0.8 }}>
-                Baseline: {landingResults.baselineGroundRoll} ft
-              </div>
-            </div>
+            </Tooltip>
 
-            <div
-              style={{
-                padding: 12,
-                borderRadius: 8,
-                background: '#fef3c7',
-                border: '2px solid #fbbf24',
-                marginBottom: 16,
-              }}
-            >
-              <div style={{ fontSize: 11, opacity: 0.8, fontWeight: 700 }}>DISTANCE OVER 50FT OBSTACLE</div>
-              <div style={{ fontSize: 32, fontWeight: 900, color: '#92400e' }}>
-                {landingResults.over50ft.toLocaleString()} ft
+            <Tooltip content="Total landing distance from 50 ft obstacle height. Baseline × correction factors × safety margin.">
+              <div
+                style={{
+                  padding: 12,
+                  borderRadius: 8,
+                  background: '#fef3c7',
+                  border: '2px solid #fbbf24',
+                  marginBottom: 16,
+                  cursor: 'help',
+                }}
+              >
+                <div style={{ fontSize: 11, opacity: 0.8, fontWeight: 700 }}>DISTANCE OVER 50FT OBSTACLE ⓘ</div>
+                <div style={{ fontSize: 32, fontWeight: 900, color: '#92400e' }}>
+                  {landingResults.over50ft.toLocaleString()} ft
+                </div>
+                <div style={{ fontSize: 11, marginTop: 4, opacity: 0.8 }}>
+                  Baseline: {landingResults.baselineOver50ft} ft
+                </div>
               </div>
-              <div style={{ fontSize: 11, marginTop: 4, opacity: 0.8 }}>
-                Baseline: {landingResults.baselineOver50ft} ft
-              </div>
-            </div>
+            </Tooltip>
 
             <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>Corrections Applied:</div>
             {landingResults.corrections.length === 0 ? (

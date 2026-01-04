@@ -4,6 +4,7 @@ import type { AircraftProfile, Station } from '../aircraft/types';
 import { assistEnvelope, diagnoseEnvelope } from '../../lib/math/envelope';
 import { round, clamp, validatePassengerWeight, checkFuelReserve } from '../../lib/utils';
 import { useFlightSession } from '../../context/FlightSessionContext';
+import { Tooltip } from '../../components/Tooltip';
 
 function makeId(prefix = 'scenario') {
   return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
@@ -97,21 +98,27 @@ function ResultCard(props: {
                   {/* Inner padding wrapper */}
                   <div style={{ padding: 12 }}>
                     <div style={{ fontSize: 14, fontWeight: 900 }}>{title}</div>
-              
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
-                      <div>Total weight</div>
-                      <div style={{ fontWeight: 700 }}>{round(totalWeight, 1)} lb</div>
-                    </div>
-              
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-                      <div>Total moment</div>
-                      <div style={{ fontWeight: 700 }}>{round(totalMoment, 1)} lb-in</div>
-                    </div>
-              
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
-                      <div>CG</div>
-                      <div style={{ fontWeight: 700 }}>{round(cgIn, 2)} in</div>
-                    </div>
+
+                    <Tooltip content="Sum of all weights (empty weight + fuel + passengers + cargo)">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, cursor: 'help' }}>
+                        <div>Total weight ⓘ</div>
+                        <div style={{ fontWeight: 700 }}>{round(totalWeight, 1)} lb</div>
+                      </div>
+                    </Tooltip>
+
+                    <Tooltip content="Sum of all moments. Moment = Weight × Arm for each station">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, cursor: 'help' }}>
+                        <div>Total moment ⓘ</div>
+                        <div style={{ fontWeight: 700 }}>{round(totalMoment, 1)} lb-in</div>
+                      </div>
+                    </Tooltip>
+
+                    <Tooltip content="Formula: CG = Total Moment ÷ Total Weight. Must fall within aircraft's CG envelope limits.">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, cursor: 'help' }}>
+                        <div>CG ⓘ</div>
+                        <div style={{ fontWeight: 700 }}>{round(cgIn, 2)} in</div>
+                      </div>
+                    </Tooltip>
               
                     <hr style={{ margin: '12px 0' }} />
               
