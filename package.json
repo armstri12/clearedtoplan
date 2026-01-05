@@ -12,6 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.89.0",
     "date-fns": "^4.1.0",
     "metar-taf-parser": "^9.1.2",
     "react": "^19.2.0",
