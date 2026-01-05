@@ -131,10 +131,22 @@ async function importRunways() {
       .on('end', async () => {
         console.log(`✅ Parsed ${runways.length} runway ends`);
 
+        // Deduplicate runways by (airport_icao, identifier)
+        const uniqueRunways = [];
+        const seen = new Set();
+        for (const runway of runways) {
+          const key = `${runway.airport_icao}:${runway.identifier}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            uniqueRunways.push(runway);
+          }
+        }
+        console.log(`✅ Deduplicated to ${uniqueRunways.length} unique runways`);
+
         try {
           // Batch insert
-          for (let i = 0; i < runways.length; i += 1000) {
-            const batch = runways.slice(i, i + 1000);
+          for (let i = 0; i < uniqueRunways.length; i += 1000) {
+            const batch = uniqueRunways.slice(i, i + 1000);
             const { error } = await supabase
               .from('runways')
               .upsert(batch, { onConflict: 'airport_icao,identifier' });
@@ -145,11 +157,11 @@ async function importRunways() {
               return;
             }
 
-            console.log(`   Imported ${Math.min(i + 1000, runways.length)}/${runways.length}`);
+            console.log(`   Imported ${Math.min(i + 1000, uniqueRunways.length)}/${uniqueRunways.length}`);
           }
 
           console.log('✅ Runway import complete!\n');
-          resolve(runways.length);
+          resolve(uniqueRunways.length);
         } catch (err) {
           reject(err);
         }
