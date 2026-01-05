@@ -134,6 +134,58 @@ CREATE POLICY "Users can delete own sessions"
   USING (auth.uid() = user_id);
 
 -- =====================================================
+-- WEIGHT & BALANCE SCENARIOS TABLE
+-- =====================================================
+CREATE TABLE wb_scenarios (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+
+  -- Scenario metadata
+  name TEXT NOT NULL,
+  aircraft_id TEXT NOT NULL, -- References aircraft_profiles.id
+
+  -- W&B inputs
+  front_lb NUMERIC NOT NULL DEFAULT 0,
+  rear_lb NUMERIC NOT NULL DEFAULT 0,
+  baggage_by_station JSONB DEFAULT '{}'::jsonb,
+
+  -- Fuel inputs (stored as strings to preserve user input format)
+  start_fuel_gal TEXT NOT NULL DEFAULT '0',
+  taxi_fuel_gal TEXT NOT NULL DEFAULT '0',
+  planned_burn_gal TEXT NOT NULL DEFAULT '0',
+
+  -- Metadata
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index for faster queries
+CREATE INDEX idx_wb_scenarios_user_id ON wb_scenarios(user_id);
+CREATE INDEX idx_wb_scenarios_aircraft_id ON wb_scenarios(aircraft_id);
+
+-- Row Level Security
+ALTER TABLE wb_scenarios ENABLE ROW LEVEL SECURITY;
+
+-- Users can only see their own scenarios
+CREATE POLICY "Users can view own wb_scenarios"
+  ON wb_scenarios FOR SELECT
+  USING (auth.uid() = user_id);
+
+-- Users can insert their own scenarios
+CREATE POLICY "Users can insert own wb_scenarios"
+  ON wb_scenarios FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Users can update their own scenarios
+CREATE POLICY "Users can update own wb_scenarios"
+  ON wb_scenarios FOR UPDATE
+  USING (auth.uid() = user_id);
+
+-- Users can delete their own scenarios
+CREATE POLICY "Users can delete own wb_scenarios"
+  ON wb_scenarios FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- =====================================================
 -- WEATHER CACHE TABLE (Optional - for caching)
 -- =====================================================
 CREATE TABLE weather_cache (
