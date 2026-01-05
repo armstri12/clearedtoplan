@@ -94,8 +94,8 @@ async function importRunways() {
     fs.createReadStream('./data/runways.csv')
       .pipe(csv())
       .on('data', (row) => {
-        // Only import if airport exists (has ICAO code)
-        if (!row.airport_ident || row.airport_ident.length !== 4) return;
+        // Only import if airport exists (has valid 4-letter ICAO code)
+        if (!row.airport_ident || row.airport_ident.length !== 4 || !row.airport_ident.match(/^[A-Z]{4}$/)) return;
 
         // Parse surface type
         const surface = row.surface?.toUpperCase() || 'UNK';
