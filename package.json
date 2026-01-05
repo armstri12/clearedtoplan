@@ -9,7 +9,8 @@
     "lint": "eslint .",
     "test": "npm run test:build && node --test \".test-dist/**/*.test.js\"",
     "test:build": "tsc -p tsconfig.test.json",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "import:airports": "tsx scripts/import-airports.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",

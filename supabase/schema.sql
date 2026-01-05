@@ -186,6 +186,61 @@ CREATE POLICY "Users can delete own wb_scenarios"
   USING (auth.uid() = user_id);
 
 -- =====================================================
+-- AIRPORTS TABLE (OurAirports Data)
+-- =====================================================
+CREATE TABLE airports (
+  icao TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  iata TEXT,
+  type TEXT, -- small_airport, medium_airport, large_airport
+  latitude_deg DECIMAL(10, 6),
+  longitude_deg DECIMAL(10, 6),
+  elevation_ft INTEGER,
+  municipality TEXT,
+  region TEXT,
+  country TEXT,
+
+  -- Metadata
+  data_source TEXT DEFAULT 'OurAirports',
+  last_updated TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_airports_icao ON airports(icao);
+CREATE INDEX idx_airports_iata ON airports(iata);
+CREATE INDEX idx_airports_name ON airports USING gin(to_tsvector('english', name));
+
+-- No RLS needed - airport data is public
+
+-- =====================================================
+-- RUNWAYS TABLE
+-- =====================================================
+CREATE TABLE runways (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  airport_icao TEXT REFERENCES airports(icao) ON DELETE CASCADE NOT NULL,
+
+  -- Runway identifiers
+  identifier TEXT NOT NULL, -- "09", "27", "04R", "22L"
+  heading_deg INTEGER, -- Magnetic heading (0-359)
+
+  -- Dimensions
+  length_ft INTEGER,
+  width_ft INTEGER,
+
+  -- Surface
+  surface TEXT, -- "ASP" (asphalt), "CON" (concrete), "GRS" (grass), "TURF", "DIRT"
+
+  -- Metadata
+  displaced_threshold_ft INTEGER,
+  is_closed BOOLEAN DEFAULT FALSE,
+
+  CONSTRAINT unique_runway UNIQUE(airport_icao, identifier)
+);
+
+CREATE INDEX idx_runways_airport ON runways(airport_icao);
+
+-- No RLS needed - runway data is public
+
+-- =====================================================
 -- WEATHER CACHE TABLE (Optional - for caching)
 -- =====================================================
 CREATE TABLE weather_cache (

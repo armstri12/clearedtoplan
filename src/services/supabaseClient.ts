@@ -500,3 +500,150 @@ export function subscribeToTable(
     .on('postgres_changes', { event: '*', schema: 'public', table }, callback)
     .subscribe();
 }
+
+// =====================================================
+// AIRPORTS & RUNWAYS
+// =====================================================
+
+export type Airport = {
+  icao: string;
+  name: string;
+  iata: string | null;
+  type: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  elevationFt: number | null;
+  municipality: string | null;
+  region: string | null;
+  country: string | null;
+};
+
+export type Runway = {
+  id: string;
+  airportIcao: string;
+  identifier: string; // "09", "27", "04R"
+  headingDeg: number | null;
+  lengthFt: number | null;
+  widthFt: number | null;
+  surface: string | null;
+  displacedThresholdFt: number | null;
+  isClosed: boolean;
+};
+
+export type RunwayWithWind = Runway & {
+  headwindComponent: number;
+  crosswindComponent: number;
+};
+
+export const airportClient = {
+  /**
+   * Search for airport by ICAO code
+   */
+  async getAirport(icao: string): Promise<Airport | null> {
+    const { data, error } = await supabase
+      .from('airports')
+      .select('*')
+      .eq('icao', icao.toUpperCase())
+      .maybeSingle();
+
+    if (error || !data) {
+      if (error) console.error('Error fetching airport:', error);
+      return null;
+    }
+
+    // Transform database row to app format
+    const airport = data as Database['public']['Tables']['airports']['Row'];
+
+    return {
+      icao: airport.icao,
+      name: airport.name,
+      iata: airport.iata,
+      type: airport.type,
+      latitude: airport.latitude_deg,
+      longitude: airport.longitude_deg,
+      elevationFt: airport.elevation_ft,
+      municipality: airport.municipality,
+      region: airport.region,
+      country: airport.country,
+    };
+  },
+
+  /**
+   * Get all runways for an airport
+   */
+  async getRunways(icao: string): Promise<Runway[]> {
+    const { data, error } = await supabase
+      .from('runways')
+      .select('*')
+      .eq('airport_icao', icao.toUpperCase())
+      .eq('is_closed', false)
+      .order('identifier');
+
+    if (error) {
+      console.error('Error fetching runways:', error);
+      return [];
+    }
+
+    return (data || []).map(transformDbToRunway);
+  },
+
+  /**
+   * Get airport with runways
+   */
+  async getAirportWithRunways(icao: string): Promise<{ airport: Airport | null; runways: Runway[] }> {
+    const [airport, runways] = await Promise.all([
+      this.getAirport(icao),
+      this.getRunways(icao),
+    ]);
+
+    return { airport, runways };
+  },
+
+  /**
+   * Calculate wind components for runways
+   */
+  calculateWindComponents(
+    runways: Runway[],
+    windDir: number,
+    windSpeed: number
+  ): RunwayWithWind[] {
+    return runways.map(runway => {
+      const runwayHeading = runway.headingDeg || 0;
+      const angleDiff = Math.abs(windDir - runwayHeading);
+      
+      // Convert to radians
+      const angleRad = (angleDiff % 360) * Math.PI / 180;
+      
+      // Calculate components
+      const headwind = Math.round(windSpeed * Math.cos(angleRad));
+      const crosswind = Math.round(Math.abs(windSpeed * Math.sin(angleRad)));
+
+      return {
+        ...runway,
+        headwindComponent: headwind,
+        crosswindComponent: crosswind,
+      };
+    });
+  },
+
+  /**
+   * Rank runways by best headwind
+   */
+  rankRunwaysByWind(runwaysWithWind: RunwayWithWind[]): RunwayWithWind[] {
+    return [...runwaysWithWind].sort((a, b) => b.headwindComponent - a.headwindComponent);
+  },
+};
+
+function transformDbToRunway(db: any): Runway {
+  return {
+    id: db.id,
+    airportIcao: db.airport_icao,
+    identifier: db.identifier,
+    headingDeg: db.heading_deg,
+    lengthFt: db.length_ft,
+    widthFt: db.width_ft,
+    surface: db.surface,
+    displacedThresholdFt: db.displaced_threshold_ft,
+    isClosed: db.is_closed || false,
+  };
+}
