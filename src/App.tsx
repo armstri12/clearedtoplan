@@ -4,7 +4,7 @@ import HomePage from './features/home/HomePage';
 import AircraftPage from './features/aircraft/AircraftPage';
 import WeightBalancePage from './features/weightBalance/WeightBalancePage';
 import NavlogPage from './features/navlog/NavlogPage';
-import PerformancePage from './features/performance/PerformancePage';
+import PerformancePage from './features/performance/PerformancePageV2';
 import WeatherPage from './features/weather/WeatherPage';
 import { WorkflowProgress } from './components/WorkflowProgress';
 import { TripHeader } from './components/TripHeader';
