@@ -16,6 +16,12 @@ import fs from 'fs';
 import csv from 'csv-parser';
 import { createClient } from '@supabase/supabase-js';
 
+// Debug: Check what dotenv loaded
+console.log('🔍 Environment variables loaded:');
+console.log(`   VITE_SUPABASE_URL: ${process.env.VITE_SUPABASE_URL ? 'SET ✓' : 'NOT SET ✗'}`);
+console.log(`   SUPABASE_SERVICE_KEY: ${process.env.SUPABASE_SERVICE_KEY ? 'SET ✓ (length: ' + process.env.SUPABASE_SERVICE_KEY.length + ')' : 'NOT SET ✗'}`);
+console.log('');
+
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY // Service role key for imports
