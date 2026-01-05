@@ -5,6 +5,7 @@ import App from './App';
 import { FlightSessionProvider } from './context/FlightSessionContext';
 import { AuthProvider } from './context/AuthContext';
 import { AircraftProvider } from './context/AircraftContext';
+import './index.css';
 import './print.css';
 
 
