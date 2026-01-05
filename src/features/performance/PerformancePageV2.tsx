@@ -26,6 +26,7 @@ function calculatePressureAltitude(fieldElevationFt: number, altimeterInHg: numb
 
 type Tab = 'density-altitude' | 'takeoff' | 'landing';
 
+// Airport-centric performance planning with METAR integration
 export default function PerformancePageV2() {
   const { currentSession, completeStep } = useFlightSession();
   const [activeTab, setActiveTab] = useState<Tab>('density-altitude');
