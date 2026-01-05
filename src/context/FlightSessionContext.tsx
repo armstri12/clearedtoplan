@@ -7,7 +7,7 @@
  * Architecture:
  * - FlightSession: Complete flight planning data (aircraft, W&B, performance, weather, navlog)
  * - Workflow tracking: Enforces step-by-step completion
- * - Data persistence: Auto-saves to localStorage
+ * - Data persistence: Auto-saves to Supabase database
  * - Multi-session support: Save and load multiple flight plans
  *
  * Workflow Steps (must be completed in order):
@@ -21,7 +21,7 @@
  * - Each page updates its section using updateAircraft(), updateWeightBalance(), etc.
  * - Pages mark their step complete using completeStep()
  * - WorkflowGuard checks canAccessStep() to enforce workflow order
- * - All changes auto-save to localStorage
+ * - All changes auto-save to Supabase
  *
  * Usage:
  * ```tsx
@@ -43,6 +43,8 @@
  * @module FlightSessionContext
  */
 import { createContext, useContext, useState, useEffect, type ReactNode, useCallback } from 'react';
+import { sessionClient } from '../services/supabaseClient';
+import { useAuth } from './AuthContext';
 
 // ===== TYPES =====
 
@@ -193,12 +195,12 @@ export type FlightSessionMetadata = {
  * Complete Flight Session
  *
  * Represents a complete flight planning session with all workflow data.
- * This is the main data structure that gets saved to localStorage.
+ * This is the main data structure that gets saved to Supabase.
  *
  * Lifecycle:
  * 1. Created with createEmptySession(name)
  * 2. Updated as user completes each workflow step
- * 3. Auto-saved to localStorage on every change
+ * 3. Auto-saved to Supabase database on every change
  * 4. Can be loaded, saved, or deleted from saved sessions list
  *
  * Workflow Enforcement:
@@ -276,9 +278,6 @@ const FlightSessionContext = createContext<FlightSessionContextType | undefined>
 
 // ===== PROVIDER =====
 
-const STORAGE_KEY = 'clearedtoplan_sessions';
-const CURRENT_SESSION_KEY = 'clearedtoplan_current_session';
-
 function withMetadataDefaults(session: FlightSession): FlightSession {
   const alternates = session.metadata?.alternates ?? [];
   return {
@@ -316,56 +315,104 @@ function createEmptySession(name: string, metadata?: Partial<FlightSessionMetada
 }
 
 export function FlightSessionProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
   const [currentSession, setCurrentSession] = useState<FlightSession | null>(null);
   const [savedSessions, setSavedSessions] = useState<FlightSession[]>([]);
 
-  // Load from localStorage on mount
+  // Load sessions from Supabase when authenticated
   useEffect(() => {
-    try {
-      const savedStr = localStorage.getItem(STORAGE_KEY);
-      if (savedStr) {
-        const sessions = JSON.parse(savedStr);
-        setSavedSessions(Array.isArray(sessions) ? sessions.map(withMetadataDefaults) : []);
+    if (!isAuthenticated) {
+      // Clear sessions when logged out
+      setCurrentSession(null);
+      setSavedSessions([]);
+      return;
+    }
+
+    async function loadSessions() {
+      try {
+        const sessions = await sessionClient.getSessions();
+        setSavedSessions(sessions.map(withMetadataDefaults));
+
+        // Load current session
+        const current = await sessionClient.getCurrentSession();
+        if (current) {
+          setCurrentSession(withMetadataDefaults(current));
+        }
+      } catch (error) {
+        console.error('Error loading sessions:', error);
       }
+    }
 
-      const currentStr = localStorage.getItem(CURRENT_SESSION_KEY);
-      if (currentStr) {
-        const session = JSON.parse(currentStr);
-        setCurrentSession(withMetadataDefaults(session));
+    loadSessions();
+  }, [isAuthenticated]);
+
+  // Auto-save current session to Supabase whenever it changes
+  useEffect(() => {
+    if (!isAuthenticated || !currentSession) return;
+
+    const session = currentSession; // Capture for closure
+
+    async function autoSave() {
+      try {
+        const exists = savedSessions.some((s) => s.id === session.id);
+        if (exists) {
+          await sessionClient.updateSession(session.id, {
+            name: session.name,
+            session_data: session,
+            aircraft_profile_id: session.aircraft?.profileId,
+            route: session.metadata?.route,
+            departure_icao: session.metadata?.departure,
+            destination_icao: session.metadata?.destination,
+            completed_steps: session.completed,
+          });
+        } else {
+          await sessionClient.createSession(session.name, {
+            route: session.metadata?.route,
+            departure: session.metadata?.departure,
+            destination: session.metadata?.destination,
+            departure_time: session.metadata?.departureTime,
+          });
+        }
+        await sessionClient.setCurrentSession(session.id);
+      } catch (error) {
+        console.error('Error auto-saving session:', error);
       }
-    } catch (error) {
-      console.error('Error loading sessions:', error);
     }
-  }, []);
 
-  // Save to localStorage whenever sessions change
-  useEffect(() => {
-    if (savedSessions.length > 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(savedSessions));
-    }
-  }, [savedSessions]);
+    // Debounce the auto-save
+    const timeoutId = setTimeout(autoSave, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [currentSession, savedSessions, isAuthenticated]);
 
-  useEffect(() => {
-    if (currentSession) {
-      localStorage.setItem(CURRENT_SESSION_KEY, JSON.stringify(currentSession));
-    } else {
-      localStorage.removeItem(CURRENT_SESSION_KEY);
-    }
-  }, [currentSession]);
-
-  const startNewSession = (name: string, metadata?: Partial<FlightSessionMetadata>) => {
+  const startNewSession = async (name: string, metadata?: Partial<FlightSessionMetadata>) => {
     const session = createEmptySession(name, metadata);
     setCurrentSession(session);
-  };
-
-  const loadSession = (id: string) => {
-    const session = savedSessions.find((s) => s.id === id);
-    if (session) {
-      setCurrentSession(withMetadataDefaults({ ...session }));
+    try {
+      await sessionClient.createSession(name, {
+        route: metadata?.route,
+        departure: metadata?.departure,
+        destination: metadata?.destination,
+        departure_time: metadata?.departureTime,
+      });
+      await sessionClient.setCurrentSession(session.id);
+    } catch (error) {
+      console.error('Error creating session:', error);
     }
   };
 
-  const saveSession = () => {
+  const loadSession = async (id: string) => {
+    try {
+      const session = await sessionClient.getSession(id);
+      if (session) {
+        setCurrentSession(withMetadataDefaults(session));
+        await sessionClient.setCurrentSession(id);
+      }
+    } catch (error) {
+      console.error('Error loading session:', error);
+    }
+  };
+
+  const saveSession = async () => {
     if (!currentSession) return;
 
     const updated = {
@@ -375,21 +422,50 @@ export function FlightSessionProvider({ children }: { children: ReactNode }) {
 
     setCurrentSession(updated);
 
-    setSavedSessions((prev) => {
-      const existing = prev.findIndex((s) => s.id === updated.id);
-      if (existing >= 0) {
-        const next = [...prev];
-        next[existing] = updated;
-        return next;
+    try {
+      const exists = savedSessions.some((s) => s.id === updated.id);
+      if (exists) {
+        await sessionClient.updateSession(updated.id, {
+          name: updated.name,
+          session_data: updated,
+          aircraft_profile_id: updated.aircraft?.profileId,
+          route: updated.metadata?.route,
+          departure_icao: updated.metadata?.departure,
+          destination_icao: updated.metadata?.destination,
+          completed_steps: updated.completed,
+        });
+      } else {
+        await sessionClient.createSession(updated.name, {
+          route: updated.metadata?.route,
+          departure: updated.metadata?.departure,
+          destination: updated.metadata?.destination,
+          departure_time: updated.metadata?.departureTime,
+        });
       }
-      return [...prev, updated];
-    });
+
+      setSavedSessions((prev) => {
+        const existing = prev.findIndex((s) => s.id === updated.id);
+        if (existing >= 0) {
+          const next = [...prev];
+          next[existing] = updated;
+          return next;
+        }
+        return [...prev, updated];
+      });
+    } catch (error) {
+      console.error('Error saving session:', error);
+    }
   };
 
-  const deleteSession = (id: string) => {
-    setSavedSessions((prev) => prev.filter((s) => s.id !== id));
-    if (currentSession?.id === id) {
-      setCurrentSession(null);
+  const deleteSession = async (id: string) => {
+    try {
+      await sessionClient.deleteSession(id);
+      setSavedSessions((prev) => prev.filter((s) => s.id !== id));
+      if (currentSession?.id === id) {
+        setCurrentSession(null);
+      }
+    } catch (error) {
+      console.error('Error deleting session:', error);
     }
   };
 
