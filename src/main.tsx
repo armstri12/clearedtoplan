@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { FlightSessionProvider } from './context/FlightSessionContext';
 import { AuthProvider } from './context/AuthContext';
+import { AircraftProvider } from './context/AircraftContext';
 import './print.css';
 
 
@@ -11,9 +12,11 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <FlightSessionProvider>
-          <App />
-        </FlightSessionProvider>
+        <AircraftProvider>
+          <FlightSessionProvider>
+            <App />
+          </FlightSessionProvider>
+        </AircraftProvider>
       </AuthProvider>
     </BrowserRouter>
   </React.StrictMode>,

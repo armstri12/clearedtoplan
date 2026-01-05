@@ -2,53 +2,48 @@
  * Authentication Context
  *
  * Provides user authentication state and functions throughout the application.
- * Currently implements simple local authentication with hardcoded credentials.
+ * Integrated with Supabase Auth for real authentication.
  *
  * Features:
- * - Login/logout functionality
- * - Persistent authentication state via localStorage
+ * - Email/password authentication via Supabase
+ * - User registration and login
+ * - Persistent authentication state (handled by Supabase)
+ * - Real-time auth state synchronization
  * - React Context for global auth state
  * - Custom hook (useAuth) for easy access
  *
- * Current Implementation:
- * - Single default user (username: "pilot", password: "cleared2024")
- * - Credentials stored in localStorage (clearedtoplan_user key)
- * - No backend integration (ready for future enhancement)
- *
- * Future Enhancements:
- * - Backend API integration for real authentication
- * - JWT token management
- * - Password reset and recovery
- * - Multi-user support with roles
- * - OAuth/SSO integration
- *
  * Usage:
  * ```tsx
- * const { user, login, logout, isAuthenticated } = useAuth();
+ * const { user, login, signup, logout, isAuthenticated, loading } = useAuth();
+ *
+ * // Sign up
+ * await signup('user@example.com', 'password123', 'John Doe');
  *
  * // Login
- * const success = login('pilot', 'cleared2024');
+ * const { success, error } = await login('user@example.com', 'password123');
  *
  * // Check auth status
  * if (isAuthenticated) {
- *   console.log('Logged in as:', user.username);
+ *   console.log('Logged in as:', user.email);
  * }
  *
  * // Logout
- * logout();
+ * await logout();
  * ```
  *
  * @module AuthContext
  */
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { authClient } from '../services/supabaseClient';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 /**
  * User object representing an authenticated user
  */
 type User = {
   id: string;
-  username: string;
   email: string;
+  name?: string;
 };
 
 /**
@@ -57,28 +52,32 @@ type User = {
 type AuthContextType = {
   /** Currently authenticated user, or null if not logged in */
   user: User | null;
-  /** Attempt to log in with username and password. Returns true if successful. */
-  login: (username: string, password: string) => boolean;
+  /** Sign up a new user with email, password, and optional name */
+  signup: (email: string, password: string, name?: string) => Promise<{ success: boolean; error?: string }>;
+  /** Attempt to log in with email and password */
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   /** Log out the current user and clear auth state */
-  logout: () => void;
+  logout: () => Promise<void>;
   /** Convenience flag: true if user is logged in */
   isAuthenticated: boolean;
+  /** Loading state for initial auth check */
+  loading: boolean;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 /**
- * Default development credentials
- * Username: pilot
- * Password: cleared2024
+ * Transform Supabase user to our User type
  */
-const DEFAULT_USER = {
-  id: 'default_user',
-  username: 'pilot',
-  email: 'pilot@clearedtoplan.com',
-};
+function transformSupabaseUser(supabaseUser: SupabaseUser | null): User | null {
+  if (!supabaseUser) return null;
 
-const DEFAULT_PASSWORD = 'cleared2024';
+  return {
+    id: supabaseUser.id,
+    email: supabaseUser.email || '',
+    name: supabaseUser.user_metadata?.name,
+  };
+}
 
 /**
  * Authentication Provider Component
@@ -90,42 +89,65 @@ const DEFAULT_PASSWORD = 'cleared2024';
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Load user from localStorage on mount
+  // Load user from Supabase session on mount and listen for auth changes
   useEffect(() => {
-    const storedUser = localStorage.getItem('clearedtoplan_user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error('Error loading user from localStorage:', error);
-        localStorage.removeItem('clearedtoplan_user');
-      }
-    }
+    // Get initial session
+    authClient.getSession().then((session) => {
+      setUser(transformSupabaseUser(session?.user ?? null));
+      setLoading(false);
+    }).catch(() => {
+      setUser(null);
+      setLoading(false);
+    });
+
+    // Listen for auth state changes
+    const { data: { subscription } } = authClient.onAuthStateChange((_event, session) => {
+      setUser(transformSupabaseUser(session?.user ?? null));
+      setLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  function login(username: string, password: string): boolean {
-    // For now, check against default credentials
-    if (username === DEFAULT_USER.username && password === DEFAULT_PASSWORD) {
-      setUser(DEFAULT_USER);
-      localStorage.setItem('clearedtoplan_user', JSON.stringify(DEFAULT_USER));
-      return true;
+  async function signup(email: string, password: string, name?: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      await authClient.signUp(email, password, name);
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error?.message || 'An unexpected error occurred' };
     }
-    return false;
   }
 
-  function logout() {
-    setUser(null);
-    localStorage.removeItem('clearedtoplan_user');
+  async function login(email: string, password: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      await authClient.signIn(email, password);
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error?.message || 'An unexpected error occurred' };
+    }
+  }
+
+  async function logout(): Promise<void> {
+    try {
+      await authClient.signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   }
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        signup,
         login,
         logout,
         isAuthenticated: !!user,
+        loading,
       }}
     >
       {children}

@@ -1,25 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { localDb, type StorageError } from '../../lib/storage/localDb';
 import { makeId } from './id';
 import type { AircraftProfile, Station } from './types';
 import { assistEnvelope } from '../../lib/math/envelope';
 import { toNumber as toNum, validateWeight } from '../../lib/utils';
 import { useFlightSession } from '../../context/FlightSessionContext';
+import { useAircraft } from '../../context/AircraftContext';
 
 
 function nowIso() {
   return new Date().toISOString();
-}
-
-function loadProfiles(): AircraftProfile[] {
-  const raw = localDb.getAircraftProfiles();
-  // Minimal trust: coerce into expected array shape
-  if (!Array.isArray(raw)) return [];
-  return raw as AircraftProfile[];
-}
-
-function saveProfiles(next: AircraftProfile[]): StorageError | null {
-  return localDb.setAircraftProfiles(next);
 }
 
 const defaultStations: Station[] = [
@@ -55,11 +44,10 @@ function blankProfile(): AircraftProfile {
 
 export default function AircraftPage() {
   const { updateAircraft, completeStep } = useFlightSession();
-  const [profiles, setProfiles] = useState<AircraftProfile[]>([]);
+  const { profiles, createProfile, updateProfile, deleteProfile: deleteProfileFromDb } = useAircraft();
   const [selectedId, setSelectedId] = useState<string>('');
   const [draft, setDraft] = useState<AircraftProfile>(() => blankProfile());
   const [status, setStatus] = useState<string>('');
-  const [storageError, setStorageError] = useState<StorageError | null>(null);
   const [envelopeCategory, setEnvelopeCategory] = useState<'normal' | 'utility'>('normal');
 
   // Track if migration has been performed for current profile to avoid re-running on every draft change
@@ -80,17 +68,15 @@ export default function AircraftPage() {
       });
     }
   }, [draft.id, draft.cgEnvelope, draft.cgEnvelopes]);
-  
-  
+
+
 
   useEffect(() => {
-    const loaded = loadProfiles();
-    setProfiles(loaded);
-    if (loaded.length > 0) {
-      setSelectedId(loaded[0].id);
-      setDraft(loaded[0]);
+    if (profiles.length > 0 && !selectedId) {
+      setSelectedId(profiles[0].id);
+      setDraft(profiles[0]);
     }
-  }, []);
+  }, [profiles]);
 
   const selected = useMemo(
     () => profiles.find((p) => p.id === selectedId),
@@ -201,7 +187,7 @@ export default function AircraftPage() {
   }
 
 
-  function saveCurrent() {
+  async function saveCurrent() {
     if (!draft.tailNumber.trim()) {
       setStatus('Tail number is required.');
       return;
@@ -228,18 +214,15 @@ export default function AircraftPage() {
     })();
 
     const exists = profiles.some((p) => p.id === normalized.id);
-    const next = exists
-      ? profiles.map((p) => (p.id === normalized.id ? normalized : p))
-      : [normalized, ...profiles];
+    const result = exists
+      ? await updateProfile(normalized.id, normalized)
+      : await createProfile(normalized);
 
-    setProfiles(next);
-    const error = saveProfiles(next);
-    if (error) {
-      setStorageError(error);
-      setStatus(`Error saving: ${error.message}`);
+    if (!result.success) {
+      setStatus(`Error saving: ${result.error}`);
       return;
     }
-    setStorageError(null);
+
     setSelectedId(normalized.id);
     setDraft(normalized);
     setStatus('Saved.');
@@ -267,66 +250,20 @@ export default function AircraftPage() {
     completeStep('aircraft');
   }
 
-  function deleteSelected() {
+  async function deleteSelected() {
     if (!selectedId) return;
-    const next = profiles.filter((p) => p.id !== selectedId);
-    setProfiles(next);
-    const error = saveProfiles(next);
-    if (error) {
-      setStorageError(error);
-      setStatus(`Error deleting: ${error.message}`);
+
+    const result = await deleteProfileFromDb(selectedId);
+
+    if (!result.success) {
+      setStatus(`Error deleting: ${result.error}`);
       return;
     }
-    setStorageError(null);
-    setSelectedId(next[0]?.id ?? '');
-    setDraft(next[0] ?? blankProfile());
+
+    const remaining = profiles.filter((p) => p.id !== selectedId);
+    setSelectedId(remaining[0]?.id ?? '');
+    setDraft(remaining[0] ?? blankProfile());
     setStatus('Deleted.');
-  }
-
-  function exportData() {
-    try {
-      const dataStr = localDb.exportData();
-      const blob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `clear-to-plan-backup-${new Date().toISOString().slice(0, 10)}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
-      setStatus('Data exported successfully.');
-    } catch (err) {
-      setStatus('Failed to export data.');
-    }
-  }
-
-  function importData() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const text = e.target?.result as string;
-        const result = localDb.importData(text);
-        if (result.success) {
-          const loaded = loadProfiles();
-          setProfiles(loaded);
-          if (loaded.length > 0) {
-            setSelectedId(loaded[0].id);
-            setDraft(loaded[0]);
-          }
-          setStatus('Data imported successfully.');
-          setStorageError(null);
-        } else {
-          setStatus(`Import failed: ${result.error}`);
-        }
-      };
-      reader.readAsText(file);
-    };
-    input.click();
   }
 
   return (
@@ -337,21 +274,6 @@ export default function AircraftPage() {
         limits.
       </p>
 
-      {storageError && storageError.type === 'quota_exceeded' && (
-        <div
-          style={{
-            marginTop: 12,
-            padding: 12,
-            border: '2px solid #f59e0b',
-            borderRadius: 12,
-            background: '#fffbeb',
-          }}
-        >
-          <div style={{ fontWeight: 900, marginBottom: 6 }}>⚠️ Storage Warning</div>
-          <div style={{ fontSize: 14 }}>{storageError.message}</div>
-        </div>
-      )}
-
       <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16, marginTop: 16 }}>
         <div style={{ border: '1px solid #ddd', borderRadius: 12, padding: 12 }}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
@@ -359,15 +281,6 @@ export default function AircraftPage() {
             <button onClick={saveCurrent}>Save</button>
             <button onClick={deleteSelected} disabled={!selectedId} aria-label="Delete selected profile">
               Delete
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-            <button onClick={exportData} aria-label="Export all data to JSON file">
-              Export
-            </button>
-            <button onClick={importData} aria-label="Import data from JSON file">
-              Import
             </button>
           </div>
 

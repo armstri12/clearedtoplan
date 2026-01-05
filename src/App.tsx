@@ -53,24 +53,40 @@ function getStepFromPath(pathname: string): Step | null {
 function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const isHomePage = location.pathname === '/';
-  const { user, login, logout, isAuthenticated } = useAuth();
+  const { user, login, signup, logout, isAuthenticated } = useAuth();
   const { currentSession, completeStep } = useFlightSession();
   const [showLogin, setShowLogin] = useState(false);
-  const [loginUsername, setLoginUsername] = useState('');
+  const [isSignupMode, setIsSignupMode] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
+  const [loginName, setLoginName] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const activeStep = useMemo(() => getStepFromPath(location.pathname), [location.pathname]);
 
-  function handleLogin(e: React.FormEvent) {
+  async function handleAuth(e: React.FormEvent) {
     e.preventDefault();
-    const success = login(loginUsername, loginPassword);
-    if (success) {
-      setShowLogin(false);
-      setLoginUsername('');
-      setLoginPassword('');
-      setLoginError('');
-    } else {
-      setLoginError('Invalid username or password');
+    setLoginError('');
+    setIsLoggingIn(true);
+
+    try {
+      const result = isSignupMode
+        ? await signup(loginEmail, loginPassword, loginName)
+        : await login(loginEmail, loginPassword);
+
+      if (result.success) {
+        setShowLogin(false);
+        setLoginEmail('');
+        setLoginPassword('');
+        setLoginName('');
+        setIsSignupMode(false);
+      } else {
+        setLoginError(result.error || 'Authentication failed');
+      }
+    } catch (error) {
+      setLoginError('An unexpected error occurred');
+    } finally {
+      setIsLoggingIn(false);
     }
   }
 
@@ -173,7 +189,7 @@ function Layout({ children }: { children: React.ReactNode }) {
               {/* Auth Button */}
               {isAuthenticated ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 8 }}>
-                  <span style={{ fontSize: 13, color: COLORS.textLight }}>👤 {user?.username}</span>
+                  <span style={{ fontSize: 13, color: COLORS.textLight }}>👤 {user?.email}</span>
                   <button
                     onClick={logout}
                     style={{
@@ -213,7 +229,7 @@ function Layout({ children }: { children: React.ReactNode }) {
         </header>
       )}
 
-      {/* Login Modal */}
+      {/* Login/Signup Modal */}
       {showLogin && (
         <div
           style={{
@@ -228,7 +244,11 @@ function Layout({ children }: { children: React.ReactNode }) {
             justifyContent: 'center',
             zIndex: 1000,
           }}
-          onClick={() => setShowLogin(false)}
+          onClick={() => {
+            setShowLogin(false);
+            setIsSignupMode(false);
+            setLoginError('');
+          }}
         >
           <div
             style={{
@@ -241,20 +261,43 @@ function Layout({ children }: { children: React.ReactNode }) {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 style={{ margin: 0, marginBottom: 8, fontSize: 24, fontWeight: 900, color: COLORS.text }}>
-              Login
+              {isSignupMode ? 'Create Account' : 'Login'}
             </h2>
             <p style={{ margin: 0, marginBottom: 16, fontSize: 13, color: COLORS.textLight }}>
-              Default credentials: <strong>pilot</strong> / <strong>cleared2024</strong>
+              {isSignupMode
+                ? 'Create an account to save your aircraft profiles and flight plans'
+                : 'Sign in to access your saved aircraft and flight sessions'}
             </p>
-            <form onSubmit={handleLogin}>
+            <form onSubmit={handleAuth}>
+              {isSignupMode && (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 600, color: COLORS.text }}>
+                    Name (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={loginName}
+                    onChange={(e) => setLoginName(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      fontSize: 14,
+                      borderRadius: 8,
+                      border: '2px solid #e2e8f0',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              )}
               <div style={{ marginBottom: 16 }}>
                 <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 600, color: COLORS.text }}>
-                  Username
+                  Email
                 </label>
                 <input
-                  type="text"
-                  value={loginUsername}
-                  onChange={(e) => setLoginUsername(e.target.value)}
+                  type="email"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  required
                   style={{
                     width: '100%',
                     padding: '10px 12px',
@@ -274,6 +317,8 @@ function Layout({ children }: { children: React.ReactNode }) {
                   type="password"
                   value={loginPassword}
                   onChange={(e) => setLoginPassword(e.target.value)}
+                  required
+                  minLength={6}
                   style={{
                     width: '100%',
                     padding: '10px 12px',
@@ -283,16 +328,25 @@ function Layout({ children }: { children: React.ReactNode }) {
                     boxSizing: 'border-box',
                   }}
                 />
+                {isSignupMode && (
+                  <p style={{ margin: '4px 0 0 0', fontSize: 11, color: COLORS.textLight }}>
+                    Minimum 6 characters
+                  </p>
+                )}
               </div>
               {loginError && (
                 <div style={{ padding: 10, marginBottom: 16, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 13, color: '#991b1b' }}>
                   {loginError}
                 </div>
               )}
-              <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginBottom: 16 }}>
                 <button
                   type="button"
-                  onClick={() => setShowLogin(false)}
+                  onClick={() => {
+                    setShowLogin(false);
+                    setIsSignupMode(false);
+                    setLoginError('');
+                  }}
                   style={{
                     padding: '10px 20px',
                     background: '#f3f4f6',
@@ -307,18 +361,64 @@ function Layout({ children }: { children: React.ReactNode }) {
                 </button>
                 <button
                   type="submit"
+                  disabled={isLoggingIn}
                   style={{
                     padding: '10px 20px',
-                    background: COLORS.primary,
+                    background: isLoggingIn ? COLORS.textLight : COLORS.primary,
                     color: '#fff',
                     border: 'none',
                     borderRadius: 8,
                     fontWeight: 600,
-                    cursor: 'pointer',
+                    cursor: isLoggingIn ? 'not-allowed' : 'pointer',
                   }}
                 >
-                  Login
+                  {isLoggingIn ? 'Please wait...' : isSignupMode ? 'Sign Up' : 'Login'}
                 </button>
+              </div>
+              <div style={{ textAlign: 'center', fontSize: 13 }}>
+                {isSignupMode ? (
+                  <>
+                    Already have an account?{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSignupMode(false);
+                        setLoginError('');
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: COLORS.primary,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        textDecoration: 'underline',
+                      }}
+                    >
+                      Login
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Don't have an account?{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSignupMode(true);
+                        setLoginError('');
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: COLORS.primary,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        textDecoration: 'underline',
+                      }}
+                    >
+                      Sign up
+                    </button>
+                  </>
+                )}
               </div>
             </form>
           </div>
