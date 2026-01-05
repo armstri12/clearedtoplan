@@ -63,7 +63,7 @@ export default function HomePage() {
           textAlign: 'center',
         }}
       >
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <div style={{ maxWidth: 1600, margin: '0 auto' }}>
           <img src="/images/logo.png" alt="Cleared To Plan" style={{ width: 60, height: 'auto', marginBottom: 16 }} />
           <div style={{ fontSize: 42, fontWeight: 900, marginBottom: 12, lineHeight: 1.2 }}>
             Cleared to Plan
@@ -75,7 +75,7 @@ export default function HomePage() {
       </div>
 
       {/* Main Content */}
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '60px 24px', flex: 1 }}>
+      <div style={{ maxWidth: 1600, margin: '0 auto', padding: '60px 24px', flex: 1 }}>
         {!isAuthenticated ? (
           /* Login/Signup Form */
           <div style={{ maxWidth: 480, margin: '0 auto' }}>
@@ -318,7 +318,7 @@ export default function HomePage() {
           textAlign: 'center',
         }}
       >
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <div style={{ maxWidth: 1600, margin: '0 auto' }}>
           <div style={{ fontSize: 14, color: COLORS.text, marginBottom: 8, fontWeight: 600 }}>
             Training aid only — Always verify results with official sources and your POH/AFM
           </div>
