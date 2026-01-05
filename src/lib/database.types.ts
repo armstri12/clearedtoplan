@@ -115,6 +115,85 @@ export interface Database {
           updated_at?: string;
         };
       };
+      airports: {
+        Row: {
+          icao: string;
+          name: string;
+          iata: string | null;
+          type: string | null;
+          latitude_deg: number | null;
+          longitude_deg: number | null;
+          elevation_ft: number | null;
+          municipality: string | null;
+          region: string | null;
+          country: string | null;
+          data_source: string | null;
+          last_updated: string;
+        };
+        Insert: {
+          icao: string;
+          name: string;
+          iata?: string | null;
+          type?: string | null;
+          latitude_deg?: number | null;
+          longitude_deg?: number | null;
+          elevation_ft?: number | null;
+          municipality?: string | null;
+          region?: string | null;
+          country?: string | null;
+          data_source?: string | null;
+          last_updated?: string;
+        };
+        Update: {
+          icao?: string;
+          name?: string;
+          iata?: string | null;
+          type?: string | null;
+          latitude_deg?: number | null;
+          longitude_deg?: number | null;
+          elevation_ft?: number | null;
+          municipality?: string | null;
+          region?: string | null;
+          country?: string | null;
+          data_source?: string | null;
+          last_updated?: string;
+        };
+      };
+      runways: {
+        Row: {
+          id: string;
+          airport_icao: string;
+          identifier: string;
+          heading_deg: number | null;
+          length_ft: number | null;
+          width_ft: number | null;
+          surface: string | null;
+          displaced_threshold_ft: number | null;
+          is_closed: boolean | null;
+        };
+        Insert: {
+          id?: string;
+          airport_icao: string;
+          identifier: string;
+          heading_deg?: number | null;
+          length_ft?: number | null;
+          width_ft?: number | null;
+          surface?: string | null;
+          displaced_threshold_ft?: number | null;
+          is_closed?: boolean | null;
+        };
+        Update: {
+          id?: string;
+          airport_icao?: string;
+          identifier?: string;
+          heading_deg?: number | null;
+          length_ft?: number | null;
+          width_ft?: number | null;
+          surface?: string | null;
+          displaced_threshold_ft?: number | null;
+          is_closed?: boolean | null;
+        };
+      };
       wb_scenarios: {
         Row: {
           id: string;
