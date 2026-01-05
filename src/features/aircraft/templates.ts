@@ -62,8 +62,8 @@ export function makeC172STemplate(): AircraftProfile {
       normal: {
         points: [
           { weightLb: 1500, cgIn: 35.0 },
-          { weightLb: 1950, cgIn: 41.0 },
-          { weightLb: 2550, cgIn: 43.5 },
+          { weightLb: 1950, cgIn: 35.0 },
+          { weightLb: 2550, cgIn: 41.0 },
           { weightLb: 2550, cgIn: 47.3 },
           { weightLb: 1500, cgIn: 47.3 },
         ],
@@ -71,10 +71,10 @@ export function makeC172STemplate(): AircraftProfile {
       utility: {
         points: [
           { weightLb: 1500, cgIn: 35.0 },
-          { weightLb: 1950, cgIn: 40.5 },
-          { weightLb: 2200, cgIn: 42.3 },
-          { weightLb: 2200, cgIn: 47.3 },
-          { weightLb: 1500, cgIn: 47.3 },
+          { weightLb: 1950, cgIn: 35.0 },
+          { weightLb: 2200, cgIn: 37.5 },
+          { weightLb: 2200, cgIn: 40.5 },
+          { weightLb: 1500, cgIn: 40.5 },
         ],
       },
     },
