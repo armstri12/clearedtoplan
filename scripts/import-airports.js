@@ -11,10 +11,13 @@
  *   node scripts/import-airports.js
  */
 
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import fs from 'fs';
 import csv from 'csv-parser';
 import { createClient } from '@supabase/supabase-js';
+
+// Load .env.local explicitly (dotenv defaults to .env only)
+dotenv.config({ path: '.env.local' });
 
 // Debug: Check what dotenv loaded
 console.log('🔍 Environment variables loaded:');
