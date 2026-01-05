@@ -327,6 +327,22 @@ export const sessionClient = {
  * Transform database aircraft profile to app format
  */
 function transformDbToAircraft(db: DbAircraftProfile): AircraftProfile {
+  const envelopeData = db.cg_envelope as any;
+
+  // Handle both new format (cgEnvelopes with categories) and legacy format (cgEnvelope)
+  let cgEnvelopes = undefined;
+  let cgEnvelope = undefined;
+
+  if (envelopeData) {
+    // Check if it's the new format with categories (normal/utility)
+    if (envelopeData.normal || envelopeData.utility) {
+      cgEnvelopes = envelopeData;
+    } else if (envelopeData.points) {
+      // Legacy format: single envelope with points
+      cgEnvelope = envelopeData;
+    }
+  }
+
   return {
     id: db.id,
     tailNumber: db.tail_number || '',
@@ -346,7 +362,8 @@ function transformDbToAircraft(db: DbAircraftProfile): AircraftProfile {
       densityLbPerGal: 6.0, // Standard avgas density
     },
     stations: (db.stations as any) || [],
-    cgEnvelope: (db.cg_envelope as any) || undefined,
+    cgEnvelopes: cgEnvelopes,
+    cgEnvelope: cgEnvelope,
     performance: (db.performance_data as any) || undefined,
     createdAt: db.created_at,
     updatedAt: db.updated_at,
@@ -360,6 +377,9 @@ function transformAircraftToDb(
   profile: AircraftProfile,
   userId: string
 ): DbAircraftProfileInsert {
+  // Prefer new cgEnvelopes format over legacy cgEnvelope
+  const envelopeData = profile.cgEnvelopes || profile.cgEnvelope;
+
   return {
     user_id: userId,
     name: profile.makeModel,
@@ -372,7 +392,7 @@ function transformAircraftToDb(
     max_gross_weight_lb: profile.limits.maxTakeoffLb,
     max_ramp_weight_lb: profile.limits.maxRampLb,
     stations: profile.stations as any,
-    cg_envelope: profile.cgEnvelope as any,
+    cg_envelope: envelopeData as any,
     performance_data: profile.performance as any,
     fuel_capacity_gal: profile.fuel.usableGal,
     usable_fuel_gal: profile.fuel.usableGal,
