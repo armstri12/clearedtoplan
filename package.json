@@ -10,7 +10,7 @@
     "test": "npm run test:build && node --test \".test-dist/**/*.test.js\"",
     "test:build": "tsc -p tsconfig.test.json",
     "preview": "vite preview",
-    "import:airports": "tsx scripts/import-airports.ts"
+    "import:airports": "node scripts/import-airports.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",
