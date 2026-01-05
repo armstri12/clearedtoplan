@@ -61,11 +61,11 @@ export default function PerformancePageV2() {
         const data = await getMetar(airport!.icao);
         setMetar(data);
 
-        if (data?.altimeter) {
-          setAltimeter(data.altimeter.toFixed(2));
+        if (data?.barometer?.hg) {
+          setAltimeter(data.barometer.hg.toFixed(2));
         }
-        if (data?.temperature !== undefined) {
-          setTemperature(data.temperature.toString());
+        if (data?.temperature?.celsius !== undefined) {
+          setTemperature(data.temperature.celsius.toString());
         }
       } catch (error) {
         console.error('Error fetching METAR:', error);
@@ -98,8 +98,8 @@ export default function PerformancePageV2() {
           return;
         }
 
-        const windDir = metar?.wind?.direction ?? null;
-        const windSpeed = metar?.wind?.speed ?? null;
+        const windDir = metar?.wind?.degrees ?? null;
+        const windSpeed = metar?.wind?.speed_kts ?? null;
 
         let runwaysWithWind: RunwayWithWind[];
         if (windDir !== null && windSpeed !== null) {
@@ -112,8 +112,8 @@ export default function PerformancePageV2() {
         } else {
           runwaysWithWind = fetchedRunways.map(rwy => ({
             ...rwy,
-            headwind: null,
-            crosswind: null,
+            headwindComponent: 0,
+            crosswindComponent: 0,
           }));
         }
 
@@ -132,7 +132,7 @@ export default function PerformancePageV2() {
     }
 
     fetchRunways();
-  }, [airport, metar?.wind?.direction, metar?.wind?.speed]);
+  }, [airport, metar?.wind?.degrees, metar?.wind?.speed_kts]);
 
   const elevationFt = airport?.elevationFt ?? 0;
   const altimeterValue = parseFloat(altimeter) || 29.92;
@@ -141,8 +141,8 @@ export default function PerformancePageV2() {
   const pressureAlt = calculatePressureAltitude(elevationFt, altimeterValue);
   const densityAlt = calculateDensityAltitude(pressureAlt, tempC);
 
-  const windDir = metar?.wind?.direction ?? null;
-  const windSpeed = metar?.wind?.speed ?? null;
+  const windDir = metar?.wind?.degrees ?? null;
+  const windSpeed = metar?.wind?.speed_kts ?? null;
 
   const tabs = [
     { id: 'density-altitude' as Tab, label: 'Density Altitude' },
@@ -191,15 +191,15 @@ export default function PerformancePageV2() {
                   <div className="text-sm font-semibold text-gray-700 mb-2">Wind</div>
                   <div className="flex items-baseline gap-3">
                     <div className="text-3xl font-bold text-blue-900">
-                      {metar.wind.direction}°
+                      {metar.wind.degrees}°
                     </div>
                     <div className="text-2xl font-semibold text-blue-700">
-                      @ {metar.wind.speed} kt
+                      @ {metar.wind.speed_kts} kt
                     </div>
                   </div>
-                  {metar.wind.gust && (
+                  {metar.wind.gust_kts && (
                     <div className="text-sm text-orange-600 mt-1">
-                      Gusts to {metar.wind.gust} kt
+                      Gusts to {metar.wind.gust_kts} kt
                     </div>
                   )}
                 </div>
@@ -209,12 +209,12 @@ export default function PerformancePageV2() {
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div className="bg-white rounded-lg p-3 border border-blue-100">
                   <div className="text-xs text-gray-600 mb-1">Temperature</div>
-                  <div className="text-2xl font-bold text-gray-900">{metar.temperature}°C</div>
+                  <div className="text-2xl font-bold text-gray-900">{metar.temperature?.celsius}°C</div>
                 </div>
                 <div className="bg-white rounded-lg p-3 border border-blue-100">
                   <div className="text-xs text-gray-600 mb-1">Altimeter</div>
                   <div className="text-2xl font-bold text-gray-900">
-                    {metar.altimeter?.toFixed(2)}
+                    {metar.barometer?.hg?.toFixed(2)}
                   </div>
                 </div>
               </div>
@@ -223,7 +223,7 @@ export default function PerformancePageV2() {
               <div className="bg-white rounded-lg p-3 border border-blue-100">
                 <div className="text-xs font-semibold text-gray-700 mb-1">METAR</div>
                 <div className="text-xs font-mono text-gray-600 leading-relaxed break-words">
-                  {metar.raw}
+                  {metar.raw_text}
                 </div>
               </div>
             </div>
@@ -249,7 +249,7 @@ export default function PerformancePageV2() {
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {runways.map((runway) => {
                     const isSelected = selectedRunway?.identifier === runway.identifier;
-                    const hasWind = runway.headwind !== null && runway.crosswind !== null;
+                    const hasWind = windDir !== null && windSpeed !== null;
 
                     return (
                       <button
@@ -291,11 +291,11 @@ export default function PerformancePageV2() {
                         {hasWind && (
                           <div className="mt-3 pt-3 border-t border-gray-200">
                             <div className="grid grid-cols-2 gap-2">
-                              <div className={`text-sm ${runway.headwind! >= 0 ? 'text-green-700 font-semibold' : 'text-red-700 font-semibold'}`}>
-                                {runway.headwind! >= 0 ? '↑' : '↓'} Headwind: {Math.round(runway.headwind!)} kt
+                              <div className={`text-sm ${runway.headwindComponent >= 0 ? 'text-green-700 font-semibold' : 'text-red-700 font-semibold'}`}>
+                                {runway.headwindComponent >= 0 ? '↑' : '↓'} Headwind: {Math.round(runway.headwindComponent)} kt
                               </div>
-                              <div className={`text-sm ${Math.abs(runway.crosswind!) > 10 ? 'text-orange-600 font-semibold' : 'text-gray-600'}`}>
-                                ↔ Crosswind: {Math.round(Math.abs(runway.crosswind!))} kt
+                              <div className={`text-sm ${Math.abs(runway.crosswindComponent) > 10 ? 'text-orange-600 font-semibold' : 'text-gray-600'}`}>
+                                ↔ Crosswind: {Math.round(Math.abs(runway.crosswindComponent))} kt
                               </div>
                             </div>
                           </div>
@@ -416,7 +416,7 @@ function DensityAltitudeTab({
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Altimeter Setting (inHg)
-              {metar?.altimeter && <span className="ml-2 text-xs text-blue-600 font-normal">(from METAR)</span>}
+              {metar?.barometer?.hg && <span className="ml-2 text-xs text-blue-600 font-normal">(from METAR)</span>}
             </label>
             <input
               type="number"
@@ -430,7 +430,7 @@ function DensityAltitudeTab({
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Temperature (°C)
-              {metar?.temperature !== undefined && <span className="ml-2 text-xs text-blue-600 font-normal">(from METAR)</span>}
+              {metar?.temperature?.celsius !== undefined && <span className="ml-2 text-xs text-blue-600 font-normal">(from METAR)</span>}
             </label>
             <input
               type="number"
