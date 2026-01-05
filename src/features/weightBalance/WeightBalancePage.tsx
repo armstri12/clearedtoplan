@@ -4,6 +4,7 @@ import type { AircraftProfile, Station } from '../aircraft/types';
 import { assistEnvelope, diagnoseEnvelope } from '../../lib/math/envelope';
 import { round, clamp, validatePassengerWeight, checkFuelReserve } from '../../lib/utils';
 import { useFlightSession } from '../../context/FlightSessionContext';
+import { useAircraft } from '../../context/AircraftContext';
 import { Tooltip } from '../../components/Tooltip';
 
 function makeId(prefix = 'scenario') {
@@ -18,11 +19,7 @@ type LoadItem = {
   station?: Station; // if known, enables station max warnings
 };
 
-function loadProfiles(): AircraftProfile[] {
-  const raw = localDb.getAircraftProfiles();
-  if (!Array.isArray(raw)) return [];
-  return raw as AircraftProfile[];
-}
+// Removed: loadProfiles() - now using AircraftContext from Supabase
 
 function compute(items: LoadItem[]) {
   const totalWeight = items.reduce((sum, i) => sum + i.weightLb, 0);
@@ -416,7 +413,7 @@ function CgDiagram(props: {
 
 export default function WeightBalancePage() {
   const { currentSession, updateWeightBalance, completeStep } = useFlightSession();
-  const [profiles, setProfiles] = useState<AircraftProfile[]>([]);
+  const { profiles } = useAircraft(); // Get profiles from Supabase via context
   const [selectedId, setSelectedId] = useState<string>('');
 
   const [phase, setPhase] = useState<Phase>('Ramp');
@@ -445,14 +442,15 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
   const [showSaveDialog, setShowSaveDialog] = useState<boolean>(false);
 
   useEffect(() => {
-    const p = loadProfiles();
-    setProfiles(p);
-    if (p.length > 0) setSelectedId(p[0].id);
+    // Auto-select first profile when profiles load from Supabase
+    if (profiles.length > 0 && !selectedId) {
+      setSelectedId(profiles[0].id);
+    }
 
-    // Load scenarios
+    // Load scenarios from localDb (these aren't migrated yet)
     const s = localDb.getWBScenarios();
     setScenarios(s);
-  }, []);
+  }, [profiles, selectedId]);
 
   function saveScenario() {
     if (!scenarioName.trim()) {
