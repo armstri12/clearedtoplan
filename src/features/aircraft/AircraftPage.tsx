@@ -5,6 +5,7 @@ import { assistEnvelope } from '../../lib/math/envelope';
 import { toNumber as toNum, validateWeight } from '../../lib/utils';
 import { useFlightSession } from '../../context/FlightSessionContext';
 import { useAircraft } from '../../context/AircraftContext';
+import { AIRCRAFT_TEMPLATES } from './templates';
 
 
 function nowIso() {
@@ -49,6 +50,7 @@ export default function AircraftPage() {
   const [draft, setDraft] = useState<AircraftProfile>(() => blankProfile());
   const [status, setStatus] = useState<string>('');
   const [envelopeCategory, setEnvelopeCategory] = useState<'normal' | 'utility'>('normal');
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
 
   // Track if migration has been performed for current profile to avoid re-running on every draft change
   const migrationDoneRef = useRef<Set<string>>(new Set());
@@ -186,6 +188,17 @@ export default function AircraftPage() {
     setStatus('New profile (not saved yet).');
   }
 
+  function loadTemplate(templateId: string) {
+    const template = AIRCRAFT_TEMPLATES.find((t) => t.id === templateId);
+    if (!template) return;
+
+    const profile = template.createProfile();
+    setDraft(profile);
+    setSelectedId('');
+    setShowTemplateSelector(false);
+    setStatus(`Loaded ${template.name} template. Customize and save.`);
+  }
+
 
   async function saveCurrent() {
     if (!draft.tailNumber.trim()) {
@@ -278,6 +291,7 @@ export default function AircraftPage() {
         <div style={{ border: '1px solid #ddd', borderRadius: 12, padding: 12 }}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
             <button onClick={newProfile}>New</button>
+            <button onClick={() => setShowTemplateSelector(true)}>Load Template</button>
             <button onClick={saveCurrent}>Save</button>
             <button onClick={deleteSelected} disabled={!selectedId} aria-label="Delete selected profile">
               Delete
@@ -651,6 +665,119 @@ export default function AircraftPage() {
 
         </div>
       </div>
+
+      {/* Template Selector Modal */}
+      {showTemplateSelector && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => setShowTemplateSelector(false)}
+        >
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: 16,
+              padding: 32,
+              maxWidth: 800,
+              width: '90%',
+              maxHeight: '80vh',
+              overflow: 'auto',
+              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+              <h2 style={{ margin: 0, fontSize: 24, fontWeight: 900 }}>Load Aircraft Template</h2>
+              <button
+                onClick={() => setShowTemplateSelector(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: 24,
+                  cursor: 'pointer',
+                  padding: 8,
+                  opacity: 0.6,
+                }}
+                aria-label="Close template selector"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p style={{ marginBottom: 24, opacity: 0.8, fontSize: 14 }}>
+              Select a pre-configured aircraft profile based on standard POH values. You can customize and save it for your specific aircraft.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
+              {AIRCRAFT_TEMPLATES.map((template) => (
+                <div
+                  key={template.id}
+                  style={{
+                    border: '2px solid #e2e8f0',
+                    borderRadius: 12,
+                    padding: 20,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    background: '#fff',
+                  }}
+                  onClick={() => loadTemplate(template.id)}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#2563eb';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(37, 99, 235, 0.15)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#e2e8f0';
+                    e.currentTarget.style.boxShadow = 'none';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}
+                >
+                  <div style={{ fontSize: 32, marginBottom: 12, textAlign: 'center' }}>✈️</div>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: 18, fontWeight: 900, textAlign: 'center' }}>
+                    {template.name}
+                  </h3>
+                  <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 12, textAlign: 'center' }}>
+                    {template.manufacturer} {template.model}
+                  </div>
+                  <p style={{ margin: 0, fontSize: 13, opacity: 0.8, lineHeight: 1.5 }}>
+                    {template.description}
+                  </p>
+                  <div
+                    style={{
+                      marginTop: 16,
+                      padding: '8px 12px',
+                      background: '#f0f9ff',
+                      borderRadius: 8,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: '#2563eb',
+                      textAlign: 'center',
+                    }}
+                  >
+                    Click to Load
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {AIRCRAFT_TEMPLATES.length === 0 && (
+              <div style={{ textAlign: 'center', padding: 40, opacity: 0.6 }}>
+                No templates available yet. Check back soon!
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
