@@ -115,6 +115,47 @@ export interface Database {
           updated_at?: string;
         };
       };
+      wb_scenarios: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          aircraft_id: string;
+          front_lb: number;
+          rear_lb: number;
+          baggage_by_station: Json;
+          start_fuel_gal: string;
+          taxi_fuel_gal: string;
+          planned_burn_gal: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          aircraft_id: string;
+          front_lb?: number;
+          rear_lb?: number;
+          baggage_by_station?: Json;
+          start_fuel_gal?: string;
+          taxi_fuel_gal?: string;
+          planned_burn_gal?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          aircraft_id?: string;
+          front_lb?: number;
+          rear_lb?: number;
+          baggage_by_station?: Json;
+          start_fuel_gal?: string;
+          taxi_fuel_gal?: string;
+          planned_burn_gal?: string;
+          created_at?: string;
+        };
+      };
       weather_cache: {
         Row: {
           id: string;

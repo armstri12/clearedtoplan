@@ -1,15 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { localDb, type WBScenario } from '../../lib/storage/localDb';
+import { wbScenarioClient, type WBScenario } from '../../services/supabaseClient';
 import type { AircraftProfile, Station } from '../aircraft/types';
 import { assistEnvelope, diagnoseEnvelope } from '../../lib/math/envelope';
 import { round, clamp, validatePassengerWeight, checkFuelReserve } from '../../lib/utils';
 import { useFlightSession } from '../../context/FlightSessionContext';
 import { useAircraft } from '../../context/AircraftContext';
 import { Tooltip } from '../../components/Tooltip';
-
-function makeId(prefix = 'scenario') {
-  return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
-}
 
 
 type LoadItem = {
@@ -447,12 +443,20 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
       setSelectedId(profiles[0].id);
     }
 
-    // Load scenarios from localDb (these aren't migrated yet)
-    const s = localDb.getWBScenarios();
-    setScenarios(s);
+    // Load scenarios from Supabase
+    loadScenarios();
   }, [profiles, selectedId]);
 
-  function saveScenario() {
+  async function loadScenarios() {
+    try {
+      const data = await wbScenarioClient.getScenarios();
+      setScenarios(data);
+    } catch (error) {
+      console.error('Error loading scenarios:', error);
+    }
+  }
+
+  async function saveScenario() {
     if (!scenarioName.trim()) {
       alert('Please enter a scenario name');
       return;
@@ -462,24 +466,26 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
       return;
     }
 
-    const scenario: WBScenario = {
-      id: makeId('scenario'),
-      name: scenarioName.trim(),
-      aircraftId: selectedId,
-      frontLb,
-      rearLb,
-      baggageByStation,
-      startFuelGal,
-      taxiFuelGal,
-      plannedBurnGal,
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      const scenario = {
+        name: scenarioName.trim(),
+        aircraftId: selectedId,
+        frontLb,
+        rearLb,
+        baggageByStation,
+        startFuelGal,
+        taxiFuelGal,
+        plannedBurnGal,
+      };
 
-    const updated = [...scenarios, scenario];
-    setScenarios(updated);
-    localDb.setWBScenarios(updated);
-    setScenarioName('');
-    setShowSaveDialog(false);
+      await wbScenarioClient.createScenario(scenario);
+      await loadScenarios(); // Reload scenarios from Supabase
+      setScenarioName('');
+      setShowSaveDialog(false);
+    } catch (error) {
+      console.error('Error saving scenario:', error);
+      alert('Failed to save scenario. Please try again.');
+    }
   }
 
   function loadScenario(scenario: WBScenario) {
@@ -499,11 +505,16 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
     setPlannedBurnGal(scenario.plannedBurnGal);
   }
 
-  function deleteScenario(id: string) {
+  async function deleteScenario(id: string) {
     if (!confirm('Delete this scenario?')) return;
-    const updated = scenarios.filter((s) => s.id !== id);
-    setScenarios(updated);
-    localDb.setWBScenarios(updated);
+
+    try {
+      await wbScenarioClient.deleteScenario(id);
+      await loadScenarios(); // Reload scenarios from Supabase
+    } catch (error) {
+      console.error('Error deleting scenario:', error);
+      alert('Failed to delete scenario. Please try again.');
+    }
   }
 
   const profile = useMemo(

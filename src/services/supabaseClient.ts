@@ -183,6 +183,95 @@ export const aircraftClient = {
 };
 
 // =====================================================
+// WEIGHT & BALANCE SCENARIOS
+// =====================================================
+
+export type WBScenario = {
+  id: string;
+  name: string;
+  aircraftId: string;
+  frontLb: number;
+  rearLb: number;
+  baggageByStation: Record<string, number>;
+  startFuelGal: string;
+  taxiFuelGal: string;
+  plannedBurnGal: string;
+  createdAt: string;
+};
+
+export const wbScenarioClient = {
+  /**
+   * Get all W&B scenarios for the current user
+   */
+  async getScenarios(): Promise<WBScenario[]> {
+    const { data, error } = await supabase
+      .from('wb_scenarios')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return (data || []).map(transformDbToWBScenario);
+  },
+
+  /**
+   * Create a new W&B scenario
+   */
+  async createScenario(scenario: Omit<WBScenario, 'id' | 'createdAt'>): Promise<WBScenario> {
+    const user = await authClient.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const dbScenario = {
+      user_id: user.id,
+      name: scenario.name,
+      aircraft_id: scenario.aircraftId,
+      front_lb: scenario.frontLb,
+      rear_lb: scenario.rearLb,
+      baggage_by_station: scenario.baggageByStation as any,
+      start_fuel_gal: scenario.startFuelGal,
+      taxi_fuel_gal: scenario.taxiFuelGal,
+      planned_burn_gal: scenario.plannedBurnGal,
+    };
+
+    const { data, error } = await supabase
+      .from('wb_scenarios')
+      .insert(dbScenario as any)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return transformDbToWBScenario(data);
+  },
+
+  /**
+   * Delete a W&B scenario
+   */
+  async deleteScenario(id: string): Promise<void> {
+    const { error } = await supabase
+      .from('wb_scenarios')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  },
+};
+
+function transformDbToWBScenario(db: any): WBScenario {
+  return {
+    id: db.id,
+    name: db.name,
+    aircraftId: db.aircraft_id,
+    frontLb: db.front_lb,
+    rearLb: db.rear_lb,
+    baggageByStation: db.baggage_by_station || {},
+    startFuelGal: db.start_fuel_gal,
+    taxiFuelGal: db.taxi_fuel_gal,
+    plannedBurnGal: db.planned_burn_gal,
+    createdAt: db.created_at,
+  };
+}
+
+// =====================================================
 // FLIGHT SESSIONS
 // =====================================================
 
