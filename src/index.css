@@ -1,4 +1,4 @@
-/* Only load Tailwind utilities - skip base reset to preserve existing styles */
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
