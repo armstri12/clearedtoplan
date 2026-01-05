@@ -55,23 +55,20 @@ export default function HomePage() {
   }
 
   return (
-    <div
-      style={{
-        background: `radial-gradient(circle at 18% 20%, rgba(37, 99, 235, 0.09), transparent 32%), radial-gradient(circle at 82% 8%, rgba(139, 92, 246, 0.12), transparent 28%), ${COLORS.background}`,
-        minHeight: '100vh',
-        color: COLORS.text,
-      }}
-    >
-      <div style={{ maxWidth: 1220, margin: '0 auto', padding: '48px 24px 32px', display: 'flex', flexDirection: 'column', gap: 32 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <img src="/images/logo.png" alt="Cleared To Plan" style={{ width: 46, height: 'auto' }} />
-            <div>
-              <div style={{ fontSize: 13, letterSpacing: 0.5, textTransform: 'uppercase', color: COLORS.textLight, fontWeight: 700 }}>
-                Cleared to Plan
-              </div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: COLORS.text }}>VFR flight planning workspace</div>
-            </div>
+    <div style={{ background: COLORS.background, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <div
+        style={{
+          background: `linear-gradient(135deg, ${COLORS.primary} 0%, ${COLORS.primaryDark} 100%)`,
+          color: '#fff',
+          padding: '80px 24px 60px',
+          textAlign: 'center',
+        }}
+      >
+        <div style={{ maxWidth: 1600, margin: '0 auto' }}>
+          <img src="/images/logo.png" alt="Cleared To Plan" style={{ width: 60, height: 'auto', marginBottom: 16 }} />
+          <div style={{ fontSize: 42, fontWeight: 900, marginBottom: 12, lineHeight: 1.2 }}>
+            Cleared to Plan
           </div>
           <div
             style={{
@@ -88,26 +85,21 @@ export default function HomePage() {
           </div>
         </div>
 
-        <section
-          style={{
-            position: 'relative',
-            overflow: 'hidden',
-            borderRadius: 28,
-            background: `linear-gradient(120deg, ${COLORS.primaryDark} 0%, #13274c 55%, #17389e 100%)`,
-            color: '#e2e8f0',
-            padding: '40px clamp(24px, 4vw, 56px)',
-            boxShadow: '0 24px 80px rgba(15,23,42,0.35)',
-          }}
-        >
-          <div
-            aria-hidden
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: `radial-gradient(circle at 20% 20%, rgba(99, 102, 241, 0.18), transparent 30%), radial-gradient(circle at 80% 10%, rgba(139, 92, 246, 0.22), transparent 30%)`,
-              filter: 'blur(2px)',
-            }}
-          />
+      {/* Main Content */}
+      <div style={{ maxWidth: 1600, margin: '0 auto', padding: '60px 24px', flex: 1 }}>
+        {!isAuthenticated ? (
+          /* Login/Signup Form */
+          <div style={{ maxWidth: 480, margin: '0 auto' }}>
+            <div style={{ textAlign: 'center', marginBottom: 32 }}>
+              <h2 style={{ fontSize: 28, fontWeight: 900, color: COLORS.text, marginBottom: 12 }}>
+                {isSignupMode ? 'Create Your Account' : 'Welcome Back'}
+              </h2>
+              <p style={{ fontSize: 16, color: COLORS.textLight }}>
+                {isSignupMode
+                  ? 'Sign up to save your aircraft profiles and flight plans'
+                  : 'Sign in to access your planning tools'}
+              </p>
+            </div>
 
           <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 32, alignItems: 'center' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -459,8 +451,8 @@ export default function HomePage() {
           marginTop: 24,
         }}
       >
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <div style={{ fontSize: 14, color: COLORS.text, marginBottom: 6, fontWeight: 700 }}>
+        <div style={{ maxWidth: 1600, margin: '0 auto' }}>
+          <div style={{ fontSize: 14, color: COLORS.text, marginBottom: 8, fontWeight: 600 }}>
             Training aid only — Always verify results with official sources and your POH/AFM
           </div>
           <div style={{ fontSize: 13, color: COLORS.textLight }}>
