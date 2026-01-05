@@ -15,6 +15,7 @@
  *   npm run import:airports
  */
 
+import 'dotenv/config';
 import fs from 'fs';
 import csv from 'csv-parser';
 import { createClient } from '@supabase/supabase-js';
