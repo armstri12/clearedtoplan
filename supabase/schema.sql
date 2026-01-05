@@ -39,9 +39,7 @@ CREATE TABLE aircraft_profiles (
 
   -- Metadata
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-
-  CONSTRAINT aircraft_profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Index for faster queries
@@ -103,9 +101,7 @@ CREATE TABLE flight_sessions (
   departure_time TIMESTAMPTZ,
 
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-
-  CONSTRAINT flight_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Indexes
