@@ -162,9 +162,9 @@ export default function PerformancePageV2() {
       </div>
 
       {/* Main Grid */}
-      <div className="grid lg:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-3 gap-6">
         {/* Left Column - Airport & Weather */}
-        <div className="lg:col-span-1 space-y-6">
+        <div className="md:col-span-1 space-y-6">
           {/* Airport Selection */}
           <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Airport</h2>
@@ -311,7 +311,7 @@ export default function PerformancePageV2() {
         </div>
 
         {/* Right Column - Tabs */}
-        <div className="lg:col-span-2">
+        <div className="md:col-span-2">
           <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
             {/* Tab Headers */}
             <div className="border-b border-gray-200 bg-gray-50">

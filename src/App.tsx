@@ -176,10 +176,10 @@ function Layout({ children }: { children: React.ReactNode }) {
       {isHomePage ? (
         children
       ) : (
-        <div style={{ maxWidth: 1400, margin: '0 auto', padding: 24 }}>
+        <div style={{ maxWidth: 1800, margin: '0 auto', padding: 24 }}>
           <main
             style={{
-              padding: 32,
+              padding: 24,
               border: `1px solid ${COLORS.border}`,
               borderRadius: 16,
               background: '#fff',
