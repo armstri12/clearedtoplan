@@ -772,8 +772,9 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
   ]);
 
   if (!profile) {
-    return (
-      <div>
+  return (
+    <div style={{ background: '#f8fafc', minHeight: '100vh', padding: '32px 24px' }}>
+      <div style={{ maxWidth: 1600, margin: '0 auto' }}>
 
 <style>{`
   @media print {
@@ -799,15 +800,29 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
   .print-only { display: none; }
 `}</style>
 
-
-        <h2>Weight &amp; Balance</h2>
-        <p>
-          No aircraft profiles found yet. Create one in <b>Aircraft</b> first.
-        </p>
-
+        {/* Page Header */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{
+            display: 'inline-block',
+            background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+            padding: '6px 14px',
+            borderRadius: 999,
+            marginBottom: 12,
+            fontSize: 12,
+            fontWeight: 700,
+            color: '#1e40af',
+          }}>
+            ⚖️ Weight & Balance
+          </div>
+          <h2 style={{ fontSize: 36, fontWeight: 900, color: '#1e293b', marginBottom: 8 }}>Weight &amp; Balance</h2>
+          <p style={{ fontSize: 16, color: '#64748b', maxWidth: 700 }}>
+            No aircraft profiles found yet. Create one in <b>Aircraft</b> first.
+          </p>
+        </div>
 
       </div>
-    );
+    </div>
+  );
   }
 
   const limitRamp = calc?.limits.maxRampLb;
@@ -818,8 +833,8 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
     phase === 'Ramp' ? calc?.rampItems : phase === 'Takeoff' ? calc?.takeoffItems : calc?.landingItems;
 
   return (
-    
-    <div>
+    <div style={{ background: '#f8fafc', minHeight: '100vh', padding: '32px 24px' }}>
+      <div style={{ maxWidth: 1600, margin: '0 auto' }}>
 
 <div className="print-only" style={{ marginBottom: 12 }}>
   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
@@ -835,31 +850,80 @@ const [plannedBurnGal, setPlannedBurnGal] = useState<string>('10');
   <hr style={{ margin: '10px 0' }} />
 </div>
 
+        {/* Page Header */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{
+            display: 'inline-block',
+            background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+            padding: '6px 14px',
+            borderRadius: 999,
+            marginBottom: 12,
+            fontSize: 12,
+            fontWeight: 700,
+            color: '#1e40af',
+          }}>
+            ⚖️ Weight & Balance Calculator
+          </div>
+          <h2 style={{ fontSize: 36, fontWeight: 900, color: '#1e293b', marginBottom: 8 }}>Weight &amp; Balance</h2>
+          <p style={{ fontSize: 16, color: '#64748b', maxWidth: 700, marginBottom: 16 }}>
+            Computes Ramp / Takeoff / Landing using taxi fuel and planned burn. Enter tail-specific limits and envelope for real pass/fail.
+          </p>
 
-      <h2>Weight &amp; Balance</h2>
-      <p style={{ marginTop: 4, opacity: 0.8 }}>
-        Computes Ramp / Takeoff / Landing using taxi fuel and planned burn. Enter tail-specific limits and envelope for real pass/fail.
-      </p>
+          <div className="no-print" style={{ display: 'flex', gap: 10 }}>
+            <button
+              onClick={() => window.print()}
+              style={{
+                padding: '10px 16px',
+                background: '#2563eb',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#1e40af'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#2563eb'}
+            >
+              🖨️ Print / Save PDF
+            </button>
+          </div>
+        </div>
 
-      <div className="no-print" style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-  <button onClick={() => window.print()}>Print / Save PDF</button>
-</div>
-
-
-    <div className="no-print">
-      <div style={{ marginTop: 12 }}>
-        <label style={{ fontSize: 12, opacity: 0.8 }}>Aircraft profile</label>
-        <select
-          value={selectedId}
-          onChange={(e) => setSelectedId(e.target.value)}
-          style={{ display: 'block', padding: 8, borderRadius: 8, marginTop: 6 }}
-        >
-          {profiles.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.tailNumber} — {p.makeModel}
-            </option>
-          ))}
-        </select>
+        <div className="no-print" style={{
+          background: '#fff',
+          border: '2px solid #e2e8f0',
+          borderRadius: 16,
+          padding: 24,
+          marginBottom: 24,
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+        }}>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#64748b', marginBottom: 8 }}>
+              Aircraft profile
+            </label>
+            <select
+              value={selectedId}
+              onChange={(e) => setSelectedId(e.target.value)}
+              style={{
+                padding: '12px 14px',
+                borderRadius: 10,
+                border: '2px solid #e2e8f0',
+                fontSize: 14,
+                background: '#fff',
+                cursor: 'pointer',
+                width: '100%',
+                maxWidth: 400,
+              }}
+            >
+              {profiles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.tailNumber} — {p.makeModel}
+                </option>
+              ))}
+            </select>
+          </div>
       </div>
 
       {/* Scenario Management */}
