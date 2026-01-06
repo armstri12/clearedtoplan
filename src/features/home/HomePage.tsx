@@ -84,24 +84,13 @@ export default function HomePage() {
             Training aid • Verify with official sources
           </div>
         </div>
+      </div>
 
       {/* Main Content */}
       <div style={{ maxWidth: 1600, margin: '0 auto', padding: '60px 24px', flex: 1 }}>
         {!isAuthenticated ? (
-          /* Login/Signup Form */
-          <div style={{ maxWidth: 480, margin: '0 auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: 32 }}>
-              <h2 style={{ fontSize: 28, fontWeight: 900, color: COLORS.text, marginBottom: 12 }}>
-                {isSignupMode ? 'Create Your Account' : 'Welcome Back'}
-              </h2>
-              <p style={{ fontSize: 16, color: COLORS.textLight }}>
-                {isSignupMode
-                  ? 'Sign up to save your aircraft profiles and flight plans'
-                  : 'Sign in to access your planning tools'}
-              </p>
-            </div>
-
-          <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 32, alignItems: 'center' }}>
+          /* Login/Signup Hero Section */
+          <section style={{ position: 'relative', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 32, alignItems: 'center' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span
@@ -347,8 +336,8 @@ export default function HomePage() {
                 </div>
               )}
             </div>
-          </div>
-        </section>
+          </section>
+        ) : null}
 
         <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18 }}>
           {[
