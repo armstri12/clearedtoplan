@@ -280,389 +280,752 @@ export default function AircraftPage() {
   }
 
   return (
-    <div>
-      <h2>Aircraft Profiles</h2>
-      <p style={{ marginTop: 4, opacity: 0.8 }}>
-        Create a profile per tail number. Use your POH/AFM and W&amp;B paperwork for exact arms and
-        limits.
-      </p>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16, marginTop: 16 }}>
-        <div style={{ border: '1px solid #ddd', borderRadius: 12, padding: 12 }}>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-            <button onClick={newProfile}>New</button>
-            <button onClick={() => setShowTemplateSelector(true)}>Load Template</button>
-            <button onClick={saveCurrent}>Save</button>
-            <button onClick={deleteSelected} disabled={!selectedId} aria-label="Delete selected profile">
-              Delete
-            </button>
+    <div style={{ background: '#f8fafc', minHeight: '100vh', padding: '32px 24px' }}>
+      <div style={{ maxWidth: 1600, margin: '0 auto' }}>
+        {/* Page Header */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{
+            display: 'inline-block',
+            background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+            padding: '6px 14px',
+            borderRadius: 999,
+            marginBottom: 12,
+            fontSize: 12,
+            fontWeight: 700,
+            color: '#1e40af',
+          }}>
+            ✈️ Aircraft Configuration
           </div>
-
-          <div style={{ marginBottom: 8, fontSize: 12, opacity: 0.8 }}>{status}</div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <label style={{ fontSize: 12, opacity: 0.8 }}>Saved profiles</label>
-            <select
-              value={selectedId}
-              onChange={(e) => setSelectedId(e.target.value)}
-              style={{ padding: 8, borderRadius: 8 }}
-            >
-              <option value="">(editing unsaved)</option>
-              {profiles.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.tailNumber || '(no tail)'} — {p.makeModel || '(no model)'}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {selected && (
-            <div style={{ marginTop: 12, fontSize: 12, opacity: 0.7 }}>
-              Updated: {new Date(selected.updatedAt).toLocaleString()}
-            </div>
-          )}
+          <h2 style={{ fontSize: 36, fontWeight: 900, color: '#1e293b', marginBottom: 8 }}>Aircraft Profiles</h2>
+          <p style={{ fontSize: 16, color: '#64748b', maxWidth: 700 }}>
+            Create a profile per tail number. Use your POH/AFM and W&amp;B paperwork for exact arms and limits.
+          </p>
         </div>
 
-        <div style={{ border: '1px solid #ddd', borderRadius: 12, padding: 12 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label>Tail number</label>
-              <input
-                value={draft.tailNumber}
-                onChange={(e) => updateDraft({ tailNumber: e.target.value.toUpperCase() })}
-                placeholder="N123AB"
-                style={{ width: '100%', padding: 8, borderRadius: 8 }}
-              />
-            </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 24 }}>
+          {/* Sidebar */}
+          <div style={{
+            background: '#fff',
+            border: '2px solid #e2e8f0',
+            borderRadius: 16,
+            padding: 24,
+            height: 'fit-content',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          }}>
+            <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 16, color: '#1e293b' }}>Profile Management</h3>
 
-            <div>
-              <label>Make / Model</label>
-              <input
-                value={draft.makeModel}
-                onChange={(e) => updateDraft({ makeModel: e.target.value })}
-                placeholder="C172S"
-                style={{ width: '100%', padding: 8, borderRadius: 8 }}
-              />
-            </div>
-
-            <div>
-              <label>Empty weight (lb)</label>
-              <input
-                id="empty-weight"
-                value={String(draft.emptyWeight.weightLb)}
-                onChange={(e) =>
-                  updateEmptyWeight('weightLb', toNum(e.target.value) ?? 0)
-                }
-                inputMode="decimal"
-                style={{ width: '100%', padding: 8, borderRadius: 8 }}
-                aria-label="Empty weight in pounds"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="empty-moment">Empty moment (lb-in)</label>
-              <input
-                id="empty-moment"
-                value={String(draft.emptyWeight.momentLbIn)}
-                onChange={(e) =>
-                  updateEmptyWeight('momentLbIn', toNum(e.target.value) ?? 0)
-                }
-                inputMode="decimal"
-                style={{ width: '100%', padding: 8, borderRadius: 8 }}
-                aria-label="Empty moment in pound-inches"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="max-ramp">Max ramp (lb)</label>
-              <input
-                id="max-ramp"
-                value={draft.limits.maxRampLb ?? ''}
-                onChange={(e) => updateLimits('maxRampLb', toNum(e.target.value))}
-                inputMode="decimal"
-                style={{ width: '100%', padding: 8, borderRadius: 8 }}
-                aria-label="Maximum ramp weight in pounds"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="max-takeoff">Max takeoff (lb)</label>
-              <input
-                id="max-takeoff"
-                value={draft.limits.maxTakeoffLb ?? ''}
-                onChange={(e) => updateLimits('maxTakeoffLb', toNum(e.target.value))}
-                inputMode="decimal"
-                style={{ width: '100%', padding: 8, borderRadius: 8 }}
-                aria-label="Maximum takeoff weight in pounds"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="max-landing">Max landing (lb)</label>
-              <input
-                id="max-landing"
-                value={draft.limits.maxLandingLb ?? ''}
-                onChange={(e) => updateLimits('maxLandingLb', toNum(e.target.value))}
-                inputMode="decimal"
-                style={{ width: '100%', padding: 8, borderRadius: 8 }}
-                aria-label="Maximum landing weight in pounds"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="usable-fuel">Usable fuel (gal)</label>
-              <input
-                id="usable-fuel"
-                value={String(draft.fuel.usableGal)}
-                onChange={(e) => updateFuel('usableGal', toNum(e.target.value) ?? 0)}
-                inputMode="decimal"
-                style={{ width: '100%', padding: 8, borderRadius: 8 }}
-                aria-label="Usable fuel in gallons"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="fuel-density">Fuel density (lb/gal)</label>
-              <input
-                id="fuel-density"
-                value={String(draft.fuel.densityLbPerGal)}
-                onChange={(e) =>
-                  updateFuel('densityLbPerGal', toNum(e.target.value) ?? 6.0)
-                }
-                aria-label="Fuel density in pounds per gallon"
-                inputMode="decimal"
-                style={{ width: '100%', padding: 8, borderRadius: 8 }}
-              />
-            </div>
-
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label>Notes</label>
-              <textarea
-                value={draft.notes ?? ''}
-                onChange={(e) => updateDraft({ notes: e.target.value })}
-                rows={3}
-                style={{ width: '100%', padding: 8, borderRadius: 8 }}
-              />
-            </div>
-          </div>
-
-          <hr style={{ margin: '16px 0' }} />
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h3 style={{ margin: 0 }}>Stations</h3>
-            <button onClick={addStation}>Add station</button>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
-            {draft.stations.map((s) => (
-              <div
-                key={s.id}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+              <button
+                onClick={newProfile}
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1.4fr 0.6fr 0.6fr auto',
-                  gap: 8,
-                  alignItems: 'center',
+                  padding: '12px 16px',
+                  background: '#2563eb',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 10,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#1e40af'}
+                onMouseLeave={(e) => e.currentTarget.style.background = '#2563eb'}
+              >
+                + New Profile
+              </button>
+              <button
+                onClick={() => setShowTemplateSelector(true)}
+                style={{
+                  padding: '12px 16px',
+                  background: '#fff',
+                  color: '#2563eb',
+                  border: '2px solid #2563eb',
+                  borderRadius: 10,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#eff6ff';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = '#fff';
                 }}
               >
-                <input
-                  value={s.name}
-                  onChange={(e) => updateStation(s.id, { name: e.target.value })}
-                  style={{ padding: 8, borderRadius: 8 }}
-                  aria-label={`Station name: ${s.name}`}
-                />
-                <input
-                  value={String(s.armIn)}
-                  onChange={(e) =>
-                    updateStation(s.id, { armIn: toNum(e.target.value) ?? 0 })
-                  }
-                  inputMode="decimal"
-                  placeholder="Arm (in)"
-                  style={{ padding: 8, borderRadius: 8 }}
-                  aria-label={`Arm for ${s.name} in inches`}
-                />
-                <input
-                  value={s.maxWeightLb ?? ''}
-                  onChange={(e) =>
-                    updateStation(s.id, { maxWeightLb: toNum(e.target.value) })
-                  }
-                  inputMode="decimal"
-                  placeholder="Max lb"
-                  style={{ padding: 8, borderRadius: 8 }}
-                  aria-label={`Maximum weight for ${s.name} in pounds`}
-                />
-                <button
-                  onClick={() => removeStation(s.id)}
-                  title="Remove station"
-                  aria-label={`Remove station ${s.name}`}
-                >
-                  ✕
-                </button>
+                📋 Load Template
+              </button>
+            </div>
+
+            {status && (
+              <div style={{
+                marginBottom: 16,
+                padding: 12,
+                background: status.includes('Error') || status.includes('needs') ? '#fef2f2' : '#f0fdf4',
+                border: `1px solid ${status.includes('Error') || status.includes('needs') ? '#fecaca' : '#bbf7d0'}`,
+                borderRadius: 8,
+                fontSize: 13,
+                color: status.includes('Error') || status.includes('needs') ? '#991b1b' : '#166534',
+                fontWeight: 600,
+              }}>
+                {status}
               </div>
-            ))}
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <label style={{ fontSize: 13, fontWeight: 700, color: '#64748b' }}>Saved Profiles</label>
+              <select
+                value={selectedId}
+                onChange={(e) => setSelectedId(e.target.value)}
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 10,
+                  border: '2px solid #e2e8f0',
+                  fontSize: 14,
+                  background: '#fff',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="">(editing unsaved)</option>
+                {profiles.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.tailNumber || '(no tail)'} — {p.makeModel || '(no model)'}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {selected && (
+              <div style={{
+                marginTop: 16,
+                padding: 12,
+                background: '#f8fafc',
+                borderRadius: 8,
+                fontSize: 12,
+                color: '#64748b',
+              }}>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>Last updated</div>
+                {new Date(selected.updatedAt).toLocaleString()}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+              <button
+                onClick={saveCurrent}
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  background: '#10b981',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#059669'}
+                onMouseLeave={(e) => e.currentTarget.style.background = '#10b981'}
+              >
+                💾 Save
+              </button>
+              <button
+                onClick={deleteSelected}
+                disabled={!selectedId}
+                aria-label="Delete selected profile"
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  background: selectedId ? '#ef4444' : '#e2e8f0',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: selectedId ? 'pointer' : 'not-allowed',
+                  opacity: selectedId ? 1 : 0.5,
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  if (selectedId) e.currentTarget.style.background = '#dc2626';
+                }}
+                onMouseLeave={(e) => {
+                  if (selectedId) e.currentTarget.style.background = '#ef4444';
+                }}
+              >
+                🗑️ Delete
+              </button>
+            </div>
           </div>
 
+          {/* Main Content Area */}
+          <div style={{
+            background: '#fff',
+            border: '2px solid #e2e8f0',
+            borderRadius: 16,
+            padding: 32,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          }}>
+            <h3 style={{ fontSize: 20, fontWeight: 900, marginBottom: 20, color: '#1e293b' }}>Basic Information</h3>
 
-<hr style={{ margin: '16px 0' }} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: '#64748b',
+                  marginBottom: 8
+                }}>Tail number</label>
+                <input
+                  value={draft.tailNumber}
+                  onChange={(e) => updateDraft({ tailNumber: e.target.value.toUpperCase() })}
+                  placeholder="N123AB"
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: 10,
+                    border: '2px solid #e2e8f0',
+                    fontSize: 15,
+                    fontWeight: 600,
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
 
-<h3 style={{ margin: 0 }}>CG Envelope (optional)</h3>
+              <div>
+                <label style={{
+                  display: 'block',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: '#64748b',
+                  marginBottom: 8
+                }}>Make / Model</label>
+                <input
+                  value={draft.makeModel}
+                  onChange={(e) => updateDraft({ makeModel: e.target.value })}
+                  placeholder="C172S"
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: 10,
+                    border: '2px solid #e2e8f0',
+                    fontSize: 15,
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
 
-<p style={{ marginTop: 8, fontSize: 12, opacity: 0.8 }}>
-  Enter points from the POH/AFM envelope chart. CG is <b>inches aft of datum</b>. Use <b>Sort</b> to
-  order points around the perimeter.
-</p>
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#64748b', marginBottom: 8 }}>
+                  Empty weight (lb)
+                </label>
+                <input
+                  id="empty-weight"
+                  value={String(draft.emptyWeight.weightLb)}
+                  onChange={(e) => updateEmptyWeight('weightLb', toNum(e.target.value) ?? 0)}
+                  inputMode="decimal"
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '2px solid #e2e8f0', fontSize: 15, boxSizing: 'border-box' }}
+                  aria-label="Empty weight in pounds"
+                />
+              </div>
 
-<div style={{ marginTop: 12, display: 'flex', gap: 12, alignItems: 'center' }}>
-  <label style={{ fontSize: 12, opacity: 0.8 }}>Envelope category</label>
-  <select
-    value={envelopeCategory}
-    onChange={(e) => setEnvelopeCategory(e.target.value as 'normal' | 'utility')}
-    style={{ padding: 8, borderRadius: 8 }}
-  >
-    <option value="normal">Normal</option>
-    <option value="utility">Utility</option>
-  </select>
-</div>
+              <div>
+                <label htmlFor="empty-moment" style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#64748b', marginBottom: 8 }}>
+                  Empty moment (lb-in)
+                </label>
+                <input
+                  id="empty-moment"
+                  value={String(draft.emptyWeight.momentLbIn)}
+                  onChange={(e) => updateEmptyWeight('momentLbIn', toNum(e.target.value) ?? 0)}
+                  inputMode="decimal"
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '2px solid #e2e8f0', fontSize: 15, boxSizing: 'border-box' }}
+                  aria-label="Empty moment in pound-inches"
+                />
+              </div>
 
-{/* Controls */}
-<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-  <button onClick={addEnvelopePoint}>Add point</button>
-  <button onClick={sortEnvelope} disabled={getCategoryPoints().length < 3}>
-    Sort points
-  </button>
-  <button onClick={clearEnvelope} disabled={getCategoryPoints().length === 0}>
-    Clear envelope
-  </button>
-</div>
+              <div>
+                <label htmlFor="max-ramp" style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#64748b', marginBottom: 8 }}>
+                  Max ramp (lb)
+                </label>
+                <input
+                  id="max-ramp"
+                  value={draft.limits.maxRampLb ?? ''}
+                  onChange={(e) => updateLimits('maxRampLb', toNum(e.target.value))}
+                  inputMode="decimal"
+                  placeholder="Optional"
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '2px solid #e2e8f0', fontSize: 15, boxSizing: 'border-box' }}
+                  aria-label="Maximum ramp weight in pounds"
+                />
+              </div>
 
-{/* Validation */}
-{(() => {
-  const pts = getCategoryPoints();
-  const report = assistEnvelope(pts).validation;
-  const n = pts.length;
+              <div>
+                <label htmlFor="max-takeoff" style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#64748b', marginBottom: 8 }}>
+                  Max takeoff (lb)
+                </label>
+                <input
+                  id="max-takeoff"
+                  value={draft.limits.maxTakeoffLb ?? ''}
+                  onChange={(e) => updateLimits('maxTakeoffLb', toNum(e.target.value))}
+                  inputMode="decimal"
+                  placeholder="Optional"
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '2px solid #e2e8f0', fontSize: 15, boxSizing: 'border-box' }}
+                  aria-label="Maximum takeoff weight in pounds"
+                />
+              </div>
 
-  if (n === 0) {
-    return (
-      <div style={{ marginTop: 10, fontSize: 12, opacity: 0.75 }}>
-        No envelope points yet for <b>{envelopeCategory}</b>. Click <b>Add point</b> to start.
-      </div>
-    );
-  }
+              <div>
+                <label htmlFor="max-landing" style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#64748b', marginBottom: 8 }}>
+                  Max landing (lb)
+                </label>
+                <input
+                  id="max-landing"
+                  value={draft.limits.maxLandingLb ?? ''}
+                  onChange={(e) => updateLimits('maxLandingLb', toNum(e.target.value))}
+                  inputMode="decimal"
+                  placeholder="Optional"
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '2px solid #e2e8f0', fontSize: 15, boxSizing: 'border-box' }}
+                  aria-label="Maximum landing weight in pounds"
+                />
+              </div>
 
-  if (n < 3) {
-    return (
-      <div style={{ marginTop: 10, fontSize: 12, fontWeight: 800, opacity: 0.8 }}>
-        Envelope inactive — add at least 3 points
-      </div>
-    );
-  }
+              <div>
+                <label htmlFor="usable-fuel" style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#64748b', marginBottom: 8 }}>
+                  Usable fuel (gal)
+                </label>
+                <input
+                  id="usable-fuel"
+                  value={String(draft.fuel.usableGal)}
+                  onChange={(e) => updateFuel('usableGal', toNum(e.target.value) ?? 0)}
+                  inputMode="decimal"
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '2px solid #e2e8f0', fontSize: 15, boxSizing: 'border-box' }}
+                  aria-label="Usable fuel in gallons"
+                />
+              </div>
 
-  return report.ok ? (
-    <div style={{ marginTop: 10, fontSize: 12, fontWeight: 900 }}>
-      Envelope status: ✅ valid ({envelopeCategory})
-    </div>
-  ) : (
-    <div style={{ marginTop: 10, fontSize: 12 }}>
-      <div style={{ fontWeight: 900 }}>Envelope status: ⛔ needs fixes ({envelopeCategory})</div>
-      <ul style={{ margin: '6px 0 0 18px' }}>
-        {report.messages.map((m, idx) => (
-          <li key={idx}>{m}</li>
-        ))}
-      </ul>
-    </div>
-  );
-})()}
+              <div>
+                <label htmlFor="fuel-density" style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#64748b', marginBottom: 8 }}>
+                  Fuel density (lb/gal)
+                </label>
+                <input
+                  id="fuel-density"
+                  value={String(draft.fuel.densityLbPerGal)}
+                  onChange={(e) => updateFuel('densityLbPerGal', toNum(e.target.value) ?? 6.0)}
+                  aria-label="Fuel density in pounds per gallon"
+                  inputMode="decimal"
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '2px solid #e2e8f0', fontSize: 15, boxSizing: 'border-box' }}
+                />
+              </div>
 
-{/* Header row */}
-<div
-  style={{
-    display: 'grid',
-    gridTemplateColumns: '0.7fr 0.7fr auto',
-    gap: 8,
-    fontSize: 12,
-    fontWeight: 800,
-    opacity: 0.85,
-    marginTop: 12,
-    paddingLeft: 2,
-  }}
->
-  <div>Weight (lb)</div>
-  <div>CG (in aft of datum)</div>
-  <div></div>
-</div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: '#64748b', marginBottom: 8 }}>
+                  Notes
+                </label>
+                <textarea
+                  value={draft.notes ?? ''}
+                  onChange={(e) => updateDraft({ notes: e.target.value })}
+                  rows={3}
+                  placeholder="Datum per POH/AFM. Verify station arms and limits from your aircraft documents."
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: '2px solid #e2e8f0', fontSize: 14, boxSizing: 'border-box', fontFamily: 'inherit', lineHeight: 1.5 }}
+                />
+              </div>
+            </div>
 
-{/* Points */}
-<div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-  {getCategoryPoints().map((p, idx) => (
-    <div
-      key={idx}
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '0.7fr 0.7fr auto',
-        gap: 8,
-        alignItems: 'center',
-      }}
-    >
-      <input
-        type="number"
-        step="1"
-        value={p.weightLb}
-        onChange={(e) => updateEnvelopePoint(idx, { weightLb: Number(e.target.value) || 0 })}
-        placeholder="e.g. 2550"
-        style={{ padding: 8, borderRadius: 8 }}
-      />
-      <input
-        type="number"
-        step="0.01"
-        value={p.cgIn}
-        onChange={(e) => updateEnvelopePoint(idx, { cgIn: Number(e.target.value) || 0 })}
-        placeholder="e.g. 41.25"
-        style={{ padding: 8, borderRadius: 8 }}
-      />
-      <button onClick={() => removeEnvelopePoint(idx)} title="Remove point">
-        ✕
-      </button>
-    </div>
-  ))}
-</div>
+            <hr style={{ margin: '32px 0', border: 'none', borderTop: '2px solid #e2e8f0' }} />
 
-{/* Tiny preview */}
-{(() => {
-  const ptsRaw = getCategoryPoints();
-  const { sorted, validation } = assistEnvelope(ptsRaw);
-  if (sorted.length < 3) return null;
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <h3 style={{ fontSize: 20, fontWeight: 900, color: '#1e293b', margin: 0 }}>Stations</h3>
+              <button
+                onClick={addStation}
+                style={{
+                  padding: '10px 16px',
+                  background: '#2563eb',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#1e40af'}
+                onMouseLeave={(e) => e.currentTarget.style.background = '#2563eb'}
+              >
+                + Add station
+              </button>
+            </div>
 
-  const xs = sorted.map((p) => p.cgIn);
-  const ys = sorted.map((p) => p.weightLb);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* Header row */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1.6fr 0.8fr 0.8fr auto',
+                gap: 12,
+                fontSize: 12,
+                fontWeight: 700,
+                color: '#64748b',
+                paddingBottom: 8,
+              }}>
+                <div>Station Name</div>
+                <div>Arm (in)</div>
+                <div>Max lb</div>
+                <div></div>
+              </div>
 
-  const W = 240;
-  const H = 140;
-  const pad = 10;
+              {draft.stations.map((s) => (
+                <div
+                  key={s.id}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1.6fr 0.8fr 0.8fr auto',
+                    gap: 12,
+                    alignItems: 'center',
+                  }}
+                >
+                  <input
+                    value={s.name}
+                    onChange={(e) => updateStation(s.id, { name: e.target.value })}
+                    style={{ padding: '10px 12px', borderRadius: 8, border: '2px solid #e2e8f0', fontSize: 14, boxSizing: 'border-box' }}
+                    aria-label={`Station name: ${s.name}`}
+                  />
+                  <input
+                    value={String(s.armIn)}
+                    onChange={(e) => updateStation(s.id, { armIn: toNum(e.target.value) ?? 0 })}
+                    inputMode="decimal"
+                    placeholder="37"
+                    style={{ padding: '10px 12px', borderRadius: 8, border: '2px solid #e2e8f0', fontSize: 14, boxSizing: 'border-box' }}
+                    aria-label={`Arm for ${s.name} in inches`}
+                  />
+                  <input
+                    value={s.maxWeightLb ?? ''}
+                    onChange={(e) => updateStation(s.id, { maxWeightLb: toNum(e.target.value) })}
+                    inputMode="decimal"
+                    placeholder="Optional"
+                    style={{ padding: '10px 12px', borderRadius: 8, border: '2px solid #e2e8f0', fontSize: 14, boxSizing: 'border-box' }}
+                    aria-label={`Maximum weight for ${s.name} in pounds`}
+                  />
+                  <button
+                    onClick={() => removeStation(s.id)}
+                    title="Remove station"
+                    aria-label={`Remove station ${s.name}`}
+                    style={{
+                      padding: '10px 12px',
+                      background: '#fee2e2',
+                      color: '#dc2626',
+                      border: 'none',
+                      borderRadius: 8,
+                      fontSize: 16,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#fecaca'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = '#fee2e2'}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
 
-  const sx = (x: number) => pad + ((x - minX) / (maxX - minX || 1)) * (W - pad * 2);
-  const sy = (y: number) => pad + (1 - (y - minY) / (maxY - minY || 1)) * (H - pad * 2);
 
-  const polyPts = sorted.map((p) => `${sx(p.cgIn)},${sy(p.weightLb)}`).join(' ');
+            <hr style={{ margin: '32px 0', border: 'none', borderTop: '2px solid #e2e8f0' }} />
 
-  return (
-    <div style={{ marginTop: 12, border: '1px solid #eee', borderRadius: 12, padding: 10 }}>
-      <div style={{ fontSize: 12, fontWeight: 900, marginBottom: 6 }}>
-        Preview ({envelopeCategory}) {validation.ok ? '✅' : '⛔'}
-      </div>
-      <svg width={W} height={H} style={{ border: '1px solid #f0f0f0', borderRadius: 8 }}>
-        <polygon points={polyPts} fill="none" stroke="black" strokeWidth={2} />
-      </svg>
-      <div style={{ marginTop: 6, fontSize: 11, opacity: 0.75 }}>
-        This is a shape preview only (not to scale). Use W&amp;B page for the plotted ramp/TO/LDG points.
-      </div>
-    </div>
-  );
-})()}
+            <h3 style={{ fontSize: 20, fontWeight: 900, color: '#1e293b', marginBottom: 12 }}>CG Envelope (optional)</h3>
 
+            <p style={{ fontSize: 14, color: '#64748b', marginBottom: 16, lineHeight: 1.6 }}>
+              Enter points from the POH/AFM envelope chart. CG is <b>inches aft of datum</b>. Use <b>Sort</b> to
+              order points around the perimeter.
+            </p>
 
+            <div style={{ marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center', background: '#f8fafc', padding: 16, borderRadius: 10 }}>
+              <label style={{ fontSize: 13, fontWeight: 700, color: '#64748b' }}>Envelope category:</label>
+              <select
+                value={envelopeCategory}
+                onChange={(e) => setEnvelopeCategory(e.target.value as 'normal' | 'utility')}
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: 8,
+                  border: '2px solid #e2e8f0',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  background: '#fff',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="normal">Normal Category</option>
+                <option value="utility">Utility Category</option>
+              </select>
+            </div>
+
+            {/* Controls */}
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+              <button
+                onClick={addEnvelopePoint}
+                style={{
+                  padding: '10px 16px',
+                  background: '#2563eb',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#1e40af'}
+                onMouseLeave={(e) => e.currentTarget.style.background = '#2563eb'}
+              >
+                + Add point
+              </button>
+              <button
+                onClick={sortEnvelope}
+                disabled={getCategoryPoints().length < 3}
+                style={{
+                  padding: '10px 16px',
+                  background: getCategoryPoints().length < 3 ? '#e2e8f0' : '#10b981',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: getCategoryPoints().length < 3 ? 'not-allowed' : 'pointer',
+                  opacity: getCategoryPoints().length < 3 ? 0.5 : 1,
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  if (getCategoryPoints().length >= 3) e.currentTarget.style.background = '#059669';
+                }}
+                onMouseLeave={(e) => {
+                  if (getCategoryPoints().length >= 3) e.currentTarget.style.background = '#10b981';
+                }}
+              >
+                📐 Sort points
+              </button>
+              <button
+                onClick={clearEnvelope}
+                disabled={getCategoryPoints().length === 0}
+                style={{
+                  padding: '10px 16px',
+                  background: getCategoryPoints().length === 0 ? '#e2e8f0' : '#ef4444',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 8,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: getCategoryPoints().length === 0 ? 'not-allowed' : 'pointer',
+                  opacity: getCategoryPoints().length === 0 ? 0.5 : 1,
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  if (getCategoryPoints().length > 0) e.currentTarget.style.background = '#dc2626';
+                }}
+                onMouseLeave={(e) => {
+                  if (getCategoryPoints().length > 0) e.currentTarget.style.background = '#ef4444';
+                }}
+              >
+                🗑️ Clear envelope
+              </button>
+            </div>
+
+            {/* Validation */}
+            {(() => {
+              const pts = getCategoryPoints();
+              const report = assistEnvelope(pts).validation;
+              const n = pts.length;
+
+              if (n === 0) {
+                return (
+                  <div style={{
+                    padding: 14,
+                    background: '#f8fafc',
+                    border: '2px dashed #cbd5e1',
+                    borderRadius: 10,
+                    fontSize: 13,
+                    color: '#64748b',
+                    textAlign: 'center',
+                  }}>
+                    No envelope points yet for <b>{envelopeCategory}</b>. Click <b>Add point</b> to start.
+                  </div>
+                );
+              }
+
+              if (n < 3) {
+                return (
+                  <div style={{
+                    padding: 14,
+                    background: '#fef3c7',
+                    border: '2px solid #fbbf24',
+                    borderRadius: 10,
+                    fontSize: 13,
+                    color: '#92400e',
+                    fontWeight: 700,
+                  }}>
+                    ⚠️ Envelope inactive — add at least 3 points
+                  </div>
+                );
+              }
+
+              return report.ok ? (
+                <div style={{
+                  padding: 14,
+                  background: '#d1fae5',
+                  border: '2px solid #10b981',
+                  borderRadius: 10,
+                  fontSize: 13,
+                  color: '#065f46',
+                  fontWeight: 700,
+                }}>
+                  ✅ Envelope valid ({envelopeCategory})
+                </div>
+              ) : (
+                <div style={{
+                  padding: 14,
+                  background: '#fee2e2',
+                  border: '2px solid #ef4444',
+                  borderRadius: 10,
+                  fontSize: 13,
+                  color: '#991b1b',
+                }}>
+                  <div style={{ fontWeight: 700, marginBottom: 6 }}>⛔ Envelope needs fixes ({envelopeCategory})</div>
+                  <ul style={{ margin: 0, paddingLeft: 20 }}>
+                    {report.messages.map((m, idx) => (
+                      <li key={idx}>{m}</li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
+
+            {/* Header row */}
+            {getCategoryPoints().length > 0 && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr auto',
+                gap: 12,
+                fontSize: 12,
+                fontWeight: 700,
+                color: '#64748b',
+                marginTop: 20,
+                marginBottom: 12,
+              }}>
+                <div>Weight (lb)</div>
+                <div>CG (in aft of datum)</div>
+                <div></div>
+              </div>
+            )}
+
+            {/* Points */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {getCategoryPoints().map((p, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr auto',
+                    gap: 12,
+                    alignItems: 'center',
+                  }}
+                >
+                  <input
+                    type="number"
+                    step="1"
+                    value={p.weightLb}
+                    onChange={(e) => updateEnvelopePoint(idx, { weightLb: Number(e.target.value) || 0 })}
+                    placeholder="e.g. 2550"
+                    style={{ padding: '10px 12px', borderRadius: 8, border: '2px solid #e2e8f0', fontSize: 14, boxSizing: 'border-box' }}
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={p.cgIn}
+                    onChange={(e) => updateEnvelopePoint(idx, { cgIn: Number(e.target.value) || 0 })}
+                    placeholder="e.g. 41.25"
+                    style={{ padding: '10px 12px', borderRadius: 8, border: '2px solid #e2e8f0', fontSize: 14, boxSizing: 'border-box' }}
+                  />
+                  <button
+                    onClick={() => removeEnvelopePoint(idx)}
+                    title="Remove point"
+                    style={{
+                      padding: '10px 12px',
+                      background: '#fee2e2',
+                      color: '#dc2626',
+                      border: 'none',
+                      borderRadius: 8,
+                      fontSize: 16,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#fecaca'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = '#fee2e2'}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Tiny preview */}
+            {(() => {
+              const ptsRaw = getCategoryPoints();
+              const { sorted, validation } = assistEnvelope(ptsRaw);
+              if (sorted.length < 3) return null;
+
+              const xs = sorted.map((p) => p.cgIn);
+              const ys = sorted.map((p) => p.weightLb);
+              const minX = Math.min(...xs);
+              const maxX = Math.max(...xs);
+              const minY = Math.min(...ys);
+              const maxY = Math.max(...ys);
+
+              const W = 300;
+              const H = 180;
+              const pad = 15;
+
+              const sx = (x: number) => pad + ((x - minX) / (maxX - minX || 1)) * (W - pad * 2);
+              const sy = (y: number) => pad + (1 - (y - minY) / (maxY - minY || 1)) * (H - pad * 2);
+
+              const polyPts = sorted.map((p) => `${sx(p.cgIn)},${sy(p.weightLb)}`).join(' ');
+
+              return (
+                <div style={{
+                  marginTop: 24,
+                  background: '#f8fafc',
+                  border: '2px solid #e2e8f0',
+                  borderRadius: 12,
+                  padding: 20,
+                }}>
+                  <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 12, color: '#1e293b' }}>
+                    Envelope Preview ({envelopeCategory}) {validation.ok ? '✅' : '⛔'}
+                  </div>
+                  <div style={{ background: '#fff', padding: 16, borderRadius: 10, marginBottom: 12 }}>
+                    <svg width={W} height={H}>
+                      <polygon
+                        points={polyPts}
+                        fill="rgba(37, 99, 235, 0.1)"
+                        stroke="#2563eb"
+                        strokeWidth={3}
+                        strokeLinejoin="round"
+                      />
+                      {sorted.map((p, i) => (
+                        <circle
+                          key={i}
+                          cx={sx(p.cgIn)}
+                          cy={sy(p.weightLb)}
+                          r={5}
+                          fill="#2563eb"
+                        />
+                      ))}
+                    </svg>
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b', lineHeight: 1.5 }}>
+                    This is a shape preview only (not to scale). Use W&amp;B page for the plotted ramp/TO/LDG points.
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
         </div>
       </div>
 

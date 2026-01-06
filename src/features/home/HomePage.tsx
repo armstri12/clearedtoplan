@@ -3,12 +3,13 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 
 const COLORS = {
-  primary: '#2563eb', // blue-600
-  primaryDark: '#1e40af', // blue-800
-  background: '#f8fafc', // slate-50
-  text: '#1e293b', // slate-800
-  textLight: '#64748b', // slate-500
-  border: '#e2e8f0', // slate-200
+  primary: '#2563eb',
+  primaryDark: '#1e40af',
+  accent: '#10b981',
+  background: '#f8fafc',
+  text: '#1e293b',
+  textLight: '#64748b',
+  border: '#e2e8f0',
 };
 
 const TOOLS = [
@@ -54,43 +55,85 @@ export default function HomePage() {
 
   return (
     <div style={{ background: COLORS.background, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
+      {/* Header with bigger logo and community feel */}
       <div
         style={{
           background: `linear-gradient(135deg, ${COLORS.primary} 0%, ${COLORS.primaryDark} 100%)`,
           color: '#fff',
-          padding: '80px 24px 60px',
+          padding: '60px 32px',
           textAlign: 'center',
+          position: 'relative',
+          overflow: 'hidden',
         }}
       >
-        <div style={{ maxWidth: 1600, margin: '0 auto' }}>
-          <img src="/images/logo.png" alt="Cleared To Plan" style={{ width: 60, height: 'auto', marginBottom: 16 }} />
-          <div style={{ fontSize: 42, fontWeight: 900, marginBottom: 12, lineHeight: 1.2 }}>
+        {/* Subtle pattern overlay */}
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundImage: 'radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.05) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.05) 0%, transparent 50%)',
+          pointerEvents: 'none'
+        }} />
+
+        <div style={{ maxWidth: 1600, margin: '0 auto', position: 'relative' }}>
+          <img
+            src="/images/logo.png"
+            alt="Cleared To Plan"
+            style={{ width: 120, height: 'auto', marginBottom: 24, filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.2))' }}
+          />
+          <h1 style={{ fontSize: 56, fontWeight: 900, marginBottom: 16, lineHeight: 1.1, letterSpacing: '-0.02em' }}>
             Cleared to Plan
-          </div>
-          <div style={{ fontSize: 18, opacity: 0.95, fontWeight: 400 }}>
-            Flight planning tools for VFR pilots
+          </h1>
+          <p style={{ fontSize: 20, opacity: 0.95, fontWeight: 400, marginBottom: 24, maxWidth: 600, margin: '0 auto 24px' }}>
+            Free flight planning tools for the VFR community
+          </p>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12, background: 'rgba(255,255,255,0.15)', padding: '12px 20px', borderRadius: 999, backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.2)' }}>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>🛠️ Homebrew project</span>
+            <span style={{ fontSize: 14, opacity: 0.7 }}>•</span>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>💚 Community-driven</span>
+            <span style={{ fontSize: 14, opacity: 0.7 }}>•</span>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>✅ Always free</span>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div style={{ maxWidth: 1600, margin: '0 auto', padding: '60px 24px', flex: 1 }}>
+      <div style={{ maxWidth: 1600, margin: '0 auto', padding: '60px 32px', flex: 1, width: '100%' }}>
         {!isAuthenticated ? (
-          /* Login/Signup Form */
-          <div style={{ maxWidth: 480, margin: '0 auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: 32 }}>
-              <h2 style={{ fontSize: 28, fontWeight: 900, color: COLORS.text, marginBottom: 12 }}>
-                {isSignupMode ? 'Create Your Account' : 'Welcome Back'}
+          <div style={{ maxWidth: 520, margin: '0 auto' }}>
+            {/* Community callout */}
+            <div style={{
+              background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+              border: `2px solid ${COLORS.accent}`,
+              borderRadius: 16,
+              padding: 24,
+              marginBottom: 32,
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>✨</div>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: 20, fontWeight: 800, color: COLORS.text }}>
+                Built by pilots, for pilots
+              </h3>
+              <p style={{ margin: 0, fontSize: 15, color: COLORS.textLight, lineHeight: 1.6 }}>
+                This is a passion project to give back to the aviation community. No ads, no subscriptions, just helpful tools.
+              </p>
+            </div>
+
+            {/* Sign in form */}
+            <div style={{ textAlign: 'center', marginBottom: 28 }}>
+              <h2 style={{ fontSize: 32, fontWeight: 900, color: COLORS.text, marginBottom: 12 }}>
+                {isSignupMode ? 'Join the Community' : 'Welcome Back'}
               </h2>
               <p style={{ fontSize: 16, color: COLORS.textLight }}>
                 {isSignupMode
-                  ? 'Sign up to save your aircraft profiles and flight plans'
+                  ? 'Create a free account to save your aircraft profiles and plans'
                   : 'Sign in to access your planning tools'}
               </p>
             </div>
 
-            <div style={{ background: '#fff', padding: 40, borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+            <div style={{ background: '#fff', padding: 40, borderRadius: 20, boxShadow: '0 4px 24px rgba(0,0,0,0.08)', border: `1px solid ${COLORS.border}` }}>
               <form onSubmit={handleAuth}>
                 {isSignupMode && (
                   <div style={{ marginBottom: 20 }}>
@@ -103,12 +146,15 @@ export default function HomePage() {
                       onChange={(e) => setName(e.target.value)}
                       style={{
                         width: '100%',
-                        padding: '12px 16px',
+                        padding: '14px 16px',
                         fontSize: 15,
-                        borderRadius: 8,
+                        borderRadius: 10,
                         border: `2px solid ${COLORS.border}`,
                         boxSizing: 'border-box',
+                        transition: 'border-color 0.2s',
                       }}
+                      onFocus={(e) => e.currentTarget.style.borderColor = COLORS.primary}
+                      onBlur={(e) => e.currentTarget.style.borderColor = COLORS.border}
                     />
                   </div>
                 )}
@@ -125,12 +171,15 @@ export default function HomePage() {
                     autoFocus
                     style={{
                       width: '100%',
-                      padding: '12px 16px',
+                      padding: '14px 16px',
                       fontSize: 15,
-                      borderRadius: 8,
+                      borderRadius: 10,
                       border: `2px solid ${COLORS.border}`,
                       boxSizing: 'border-box',
+                      transition: 'border-color 0.2s',
                     }}
+                    onFocus={(e) => e.currentTarget.style.borderColor = COLORS.primary}
+                    onBlur={(e) => e.currentTarget.style.borderColor = COLORS.border}
                   />
                 </div>
 
@@ -146,15 +195,18 @@ export default function HomePage() {
                     minLength={6}
                     style={{
                       width: '100%',
-                      padding: '12px 16px',
+                      padding: '14px 16px',
                       fontSize: 15,
-                      borderRadius: 8,
+                      borderRadius: 10,
                       border: `2px solid ${COLORS.border}`,
                       boxSizing: 'border-box',
+                      transition: 'border-color 0.2s',
                     }}
+                    onFocus={(e) => e.currentTarget.style.borderColor = COLORS.primary}
+                    onBlur={(e) => e.currentTarget.style.borderColor = COLORS.border}
                   />
                   {isSignupMode && (
-                    <p style={{ margin: '6px 0 0 0', fontSize: 12, color: COLORS.textLight }}>
+                    <p style={{ margin: '8px 0 0 0', fontSize: 12, color: COLORS.textLight }}>
                       Minimum 6 characters
                     </p>
                   )}
@@ -162,13 +214,14 @@ export default function HomePage() {
 
                 {error && (
                   <div style={{
-                    padding: 12,
+                    padding: 14,
                     marginBottom: 20,
                     background: '#fef2f2',
-                    border: '1px solid #fecaca',
-                    borderRadius: 8,
+                    border: '2px solid #fecaca',
+                    borderRadius: 10,
                     fontSize: 14,
-                    color: '#991b1b'
+                    color: '#991b1b',
+                    fontWeight: 600,
                   }}>
                     {error}
                   </div>
@@ -179,21 +232,33 @@ export default function HomePage() {
                   disabled={isLoading}
                   style={{
                     width: '100%',
-                    padding: '14px 24px',
+                    padding: '16px 24px',
                     background: isLoading ? COLORS.textLight : COLORS.primary,
                     color: '#fff',
                     border: 'none',
-                    borderRadius: 8,
+                    borderRadius: 10,
                     fontSize: 16,
                     fontWeight: 700,
                     cursor: isLoading ? 'not-allowed' : 'pointer',
                     marginBottom: 20,
+                    boxShadow: '0 4px 14px rgba(37,99,235,0.3)',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isLoading) {
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 6px 20px rgba(37,99,235,0.4)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 14px rgba(37,99,235,0.3)';
                   }}
                 >
-                  {isLoading ? 'Please wait...' : isSignupMode ? 'Create Account' : 'Sign In'}
+                  {isLoading ? 'Please wait...' : isSignupMode ? 'Create Free Account' : 'Sign In'}
                 </button>
 
-                <div style={{ textAlign: 'center', fontSize: 14 }}>
+                <div style={{ textAlign: 'center', fontSize: 14, color: COLORS.textLight }}>
                   {isSignupMode ? (
                     <>
                       Already have an account?{' '}
@@ -207,7 +272,7 @@ export default function HomePage() {
                           background: 'none',
                           border: 'none',
                           color: COLORS.primary,
-                          fontWeight: 600,
+                          fontWeight: 700,
                           cursor: 'pointer',
                           textDecoration: 'underline',
                         }}
@@ -228,12 +293,12 @@ export default function HomePage() {
                           background: 'none',
                           border: 'none',
                           color: COLORS.primary,
-                          fontWeight: 600,
+                          fontWeight: 700,
                           cursor: 'pointer',
                           textDecoration: 'underline',
                         }}
                       >
-                        Sign up
+                        Sign up free
                       </button>
                     </>
                   )}
@@ -244,31 +309,52 @@ export default function HomePage() {
         ) : (
           /* Tools Grid - shown when authenticated */
           <>
-            <div style={{ textAlign: 'center', marginBottom: 40 }}>
-              <h2 style={{ fontSize: 32, fontWeight: 900, color: COLORS.text, marginBottom: 8 }}>
-                Welcome, {user?.name || user?.email?.split('@')[0]}!
+            <div style={{ textAlign: 'center', marginBottom: 48, maxWidth: 700, margin: '0 auto 48px' }}>
+              <div style={{
+                display: 'inline-block',
+                background: `linear-gradient(135deg, ${COLORS.primary}15 0%, ${COLORS.accent}15 100%)`,
+                padding: '8px 16px',
+                borderRadius: 999,
+                marginBottom: 16,
+                fontSize: 13,
+                fontWeight: 700,
+                color: COLORS.primary,
+              }}>
+                ✈️ Your Workspace
+              </div>
+              <h2 style={{ fontSize: 40, fontWeight: 900, color: COLORS.text, marginBottom: 12 }}>
+                Welcome back, {user?.name || user?.email?.split('@')[0]}!
               </h2>
-              <p style={{ fontSize: 16, color: COLORS.textLight, marginBottom: 16 }}>
-                Select a planning tool to get started
+              <p style={{ fontSize: 18, color: COLORS.textLight, marginBottom: 20 }}>
+                Select a planning tool below to get started
               </p>
               <button
                 onClick={logout}
                 style={{
-                  padding: '8px 16px',
-                  background: '#f3f4f6',
+                  padding: '10px 20px',
+                  background: '#fff',
                   color: COLORS.text,
-                  border: 'none',
-                  borderRadius: 8,
+                  border: `2px solid ${COLORS.border}`,
+                  borderRadius: 10,
                   fontSize: 14,
                   fontWeight: 600,
                   cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = COLORS.primary;
+                  e.currentTarget.style.color = COLORS.primary;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = COLORS.border;
+                  e.currentTarget.style.color = COLORS.text;
                 }}
               >
                 Sign Out
               </button>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24, maxWidth: 1200, margin: '0 auto' }}>
               {TOOLS.map((tool) => (
                 <Link
                   key={tool.to}
@@ -276,8 +362,8 @@ export default function HomePage() {
                   style={{
                     padding: 32,
                     background: '#fff',
-                    borderRadius: 16,
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                    borderRadius: 20,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
                     textDecoration: 'none',
                     color: COLORS.text,
                     transition: 'all 0.3s',
@@ -285,18 +371,18 @@ export default function HomePage() {
                     display: 'block',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(37,99,235,0.15)';
+                    e.currentTarget.style.boxShadow = '0 12px 32px rgba(37,99,235,0.15)';
                     e.currentTarget.style.borderColor = COLORS.primary;
-                    e.currentTarget.style.transform = 'translateY(-4px)';
+                    e.currentTarget.style.transform = 'translateY(-6px)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.06)';
                     e.currentTarget.style.borderColor = COLORS.border;
                     e.currentTarget.style.transform = 'translateY(0)';
                   }}
                 >
-                  <div style={{ fontSize: 48, marginBottom: 16, textAlign: 'center' }}>{tool.icon}</div>
-                  <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8, color: COLORS.text, textAlign: 'center' }}>
+                  <div style={{ fontSize: 56, marginBottom: 20, textAlign: 'center' }}>{tool.icon}</div>
+                  <h3 style={{ fontSize: 22, fontWeight: 900, marginBottom: 10, color: COLORS.text, textAlign: 'center' }}>
                     {tool.label}
                   </h3>
                   <p style={{ fontSize: 14, color: COLORS.textLight, lineHeight: 1.6, margin: 0, textAlign: 'center' }}>
@@ -309,26 +395,29 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* Footer */}
+      {/* Footer with community vibe */}
       <div
         style={{
           background: '#fff',
           borderTop: `1px solid ${COLORS.border}`,
-          padding: '24px',
+          padding: '32px 24px',
           textAlign: 'center',
         }}
       >
         <div style={{ maxWidth: 1600, margin: '0 auto' }}>
-          <div style={{ fontSize: 14, color: COLORS.text, marginBottom: 8, fontWeight: 600 }}>
-            Training aid only — Always verify results with official sources and your POH/AFM
+          <div style={{ fontSize: 15, color: COLORS.text, marginBottom: 12, fontWeight: 700 }}>
+            ⚠️ Training aid only — Always verify results with official sources and your POH/AFM
           </div>
-          <div style={{ fontSize: 13, color: COLORS.textLight }}>
-            VFR planning • Not for commercial use • Built by{' '}
+          <div style={{ fontSize: 14, color: COLORS.textLight, marginBottom: 16 }}>
+            VFR planning • Not for commercial use • No warranty expressed or implied
+          </div>
+          <div style={{ fontSize: 14, color: COLORS.textLight }}>
+            Made with ❤️ for the pilot community by{' '}
             <a
               href="https://flywithian.com"
               target="_blank"
               rel="noopener noreferrer"
-              style={{ color: COLORS.primary, textDecoration: 'none' }}
+              style={{ color: COLORS.primary, textDecoration: 'none', fontWeight: 700 }}
             >
               Fly With Ian
             </a>
