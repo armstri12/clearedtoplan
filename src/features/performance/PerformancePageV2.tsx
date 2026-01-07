@@ -31,7 +31,13 @@ export default function PerformancePageV2() {
   const { currentSession, completeStep } = useFlightSession();
   const [activeTab, setActiveTab] = useState<Tab>('density-altitude');
 
-  const [airport, setAirport] = useState<Airport | null>(null);
+  // Separate departure and arrival airports
+  const [departureAirport, setDepartureAirport] = useState<Airport | null>(null);
+  const [arrivalAirport, setArrivalAirport] = useState<Airport | null>(null);
+
+  // Use departure for density altitude tab, appropriate airport for takeoff/landing
+  const activeAirport = activeTab === 'landing' ? arrivalAirport : departureAirport;
+
   const [runways, setRunways] = useState<RunwayWithWind[]>([]);
   const [selectedRunway, setSelectedRunway] = useState<Runway | null>(null);
   const [isLoadingRunways, setIsLoadingRunways] = useState(false);
@@ -49,9 +55,9 @@ export default function PerformancePageV2() {
     }
   }, [completeStep, currentSession]);
 
-  // Fetch METAR when airport selected
+  // Fetch METAR when active airport changes
   useEffect(() => {
-    if (!airport) {
+    if (!activeAirport) {
       setMetar(null);
       return;
     }
@@ -59,7 +65,7 @@ export default function PerformancePageV2() {
     async function fetchMetar() {
       setIsLoadingMetar(true);
       try {
-        const data = await getMetar(airport!.icao);
+        const data = await getMetar(activeAirport!.icao);
         setMetar(data);
 
         if (data?.barometer?.hg) {
@@ -77,11 +83,11 @@ export default function PerformancePageV2() {
     }
 
     fetchMetar();
-  }, [airport]);
+  }, [activeAirport]);
 
-  // Fetch runways when airport or wind changes
+  // Fetch runways when active airport or wind changes
   useEffect(() => {
-    if (!airport) {
+    if (!activeAirport) {
       setRunways([]);
       setSelectedRunway(null);
       return;
@@ -91,7 +97,7 @@ export default function PerformancePageV2() {
       setIsLoadingRunways(true);
 
       try {
-        const fetchedRunways = await airportClient.getRunways(airport!.icao);
+        const fetchedRunways = await airportClient.getRunways(activeAirport!.icao);
 
         if (fetchedRunways.length === 0) {
           setRunways([]);
@@ -133,9 +139,9 @@ export default function PerformancePageV2() {
     }
 
     fetchRunways();
-  }, [airport, metar?.wind?.degrees, metar?.wind?.speed_kts]);
+  }, [activeAirport, metar?.wind?.degrees, metar?.wind?.speed_kts]);
 
-  const elevationFt = airport?.elevationFt ?? 0;
+  const elevationFt = activeAirport?.elevationFt ?? 0;
   const altimeterValue = parseFloat(altimeter) || 29.92;
   const tempC = parseFloat(temperature) || 15;
 
@@ -165,22 +171,39 @@ export default function PerformancePageV2() {
       <div className="grid md:grid-cols-3 gap-6">
         {/* Left Column - Airport & Weather */}
         <div className="md:col-span-1 space-y-6">
-          {/* Airport Selection */}
+          {/* Departure Airport Selection */}
           <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Airport</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">
+              🛫 Departure Airport
+            </h2>
             <AirportSelector
-              selectedAirport={airport}
-              onSelect={setAirport}
+              selectedAirport={departureAirport}
+              onSelect={setDepartureAirport}
               label=""
               placeholder="ICAO (e.g., KJFK)"
             />
           </div>
 
+          {/* Arrival Airport Selection */}
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">
+              🛬 Arrival Airport
+            </h2>
+            <AirportSelector
+              selectedAirport={arrivalAirport}
+              onSelect={setArrivalAirport}
+              label=""
+              placeholder="ICAO (e.g., KLGA)"
+            />
+          </div>
+
           {/* Weather Card */}
-          {metar && (
+          {metar && activeAirport && (
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-lg border border-blue-200 p-6">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-bold text-gray-900">Current Weather</h3>
+                <h3 className="text-lg font-bold text-gray-900">
+                  Current Weather - {activeAirport.icao}
+                </h3>
                 {isLoadingMetar && (
                   <span className="text-xs text-blue-600">Updating...</span>
                 )}
@@ -231,7 +254,7 @@ export default function PerformancePageV2() {
           )}
 
           {/* Runway Selection */}
-          {airport && (
+          {activeAirport && (
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-bold text-gray-900">Runways</h3>
@@ -336,7 +359,7 @@ export default function PerformancePageV2() {
             <div className="p-8">
               {activeTab === 'density-altitude' && (
                 <DensityAltitudeTab
-                  airport={airport}
+                  airport={departureAirport}
                   metar={metar}
                   altimeter={altimeter}
                   setAltimeter={setAltimeter}
@@ -350,7 +373,7 @@ export default function PerformancePageV2() {
 
               {activeTab === 'takeoff' && (
                 <TakeoffTab
-                  airport={airport}
+                  airport={departureAirport}
                   runway={selectedRunway}
                   densityAlt={densityAlt}
                 />
@@ -358,7 +381,7 @@ export default function PerformancePageV2() {
 
               {activeTab === 'landing' && (
                 <LandingTab
-                  airport={airport}
+                  airport={arrivalAirport}
                   runway={selectedRunway}
                   densityAlt={densityAlt}
                 />
@@ -401,7 +424,7 @@ function DensityAltitudeTab({
     return (
       <div className="text-center py-16">
         <div className="text-6xl mb-4">🛩️</div>
-        <p className="text-xl text-gray-500">Select an airport to calculate density altitude</p>
+        <p className="text-xl text-gray-500">Select a departure airport to calculate density altitude</p>
       </div>
     );
   }
@@ -544,11 +567,20 @@ interface TakeoffTabProps {
 }
 
 function TakeoffTab({ airport, runway, densityAlt }: TakeoffTabProps) {
-  if (!airport || !runway) {
+  if (!airport) {
     return (
       <div className="text-center py-16">
         <div className="text-6xl mb-4">🛫</div>
-        <p className="text-xl text-gray-500">Select an airport and runway for takeoff calculations</p>
+        <p className="text-xl text-gray-500">Select a departure airport for takeoff calculations</p>
+      </div>
+    );
+  }
+
+  if (!runway) {
+    return (
+      <div className="text-center py-16">
+        <div className="text-6xl mb-4">🛫</div>
+        <p className="text-xl text-gray-500">Select a runway at {airport.icao} for takeoff calculations</p>
       </div>
     );
   }
@@ -557,10 +589,10 @@ function TakeoffTab({ airport, runway, densityAlt }: TakeoffTabProps) {
     <div className="space-y-6">
       <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-8 border-2 border-green-200">
         <h3 className="text-2xl font-bold text-gray-900 mb-4">
-          Takeoff from Runway {runway.identifier}
+          🛫 Takeoff from {airport.icao} Runway {runway.identifier}
         </h3>
         <div className="space-y-2 text-gray-700">
-          <p className="text-lg"><strong>Airport:</strong> {airport.icao} - {airport.name}</p>
+          <p className="text-lg"><strong>Departure Airport:</strong> {airport.icao} - {airport.name}</p>
           <p className="text-lg"><strong>Runway Length:</strong> {runway.lengthFt?.toLocaleString()} ft</p>
           <p className="text-lg"><strong>Density Altitude:</strong> {densityAlt.toLocaleString()} ft</p>
         </div>
@@ -585,11 +617,20 @@ interface LandingTabProps {
 }
 
 function LandingTab({ airport, runway, densityAlt }: LandingTabProps) {
-  if (!airport || !runway) {
+  if (!airport) {
     return (
       <div className="text-center py-16">
         <div className="text-6xl mb-4">🛬</div>
-        <p className="text-xl text-gray-500">Select an airport and runway for landing calculations</p>
+        <p className="text-xl text-gray-500">Select an arrival airport for landing calculations</p>
+      </div>
+    );
+  }
+
+  if (!runway) {
+    return (
+      <div className="text-center py-16">
+        <div className="text-6xl mb-4">🛬</div>
+        <p className="text-xl text-gray-500">Select a runway at {airport.icao} for landing calculations</p>
       </div>
     );
   }
@@ -598,10 +639,10 @@ function LandingTab({ airport, runway, densityAlt }: LandingTabProps) {
     <div className="space-y-6">
       <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-8 border-2 border-blue-200">
         <h3 className="text-2xl font-bold text-gray-900 mb-4">
-          Landing on Runway {runway.identifier}
+          🛬 Landing at {airport.icao} Runway {runway.identifier}
         </h3>
         <div className="space-y-2 text-gray-700">
-          <p className="text-lg"><strong>Airport:</strong> {airport.icao} - {airport.name}</p>
+          <p className="text-lg"><strong>Arrival Airport:</strong> {airport.icao} - {airport.name}</p>
           <p className="text-lg"><strong>Runway Length:</strong> {runway.lengthFt?.toLocaleString()} ft</p>
           <p className="text-lg"><strong>Density Altitude:</strong> {densityAlt.toLocaleString()} ft</p>
         </div>
