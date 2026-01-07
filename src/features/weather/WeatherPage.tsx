@@ -506,22 +506,39 @@ export default function WeatherPage() {
   }, [airports.length, completeStep, currentSession]);
 
   return (
-    <div>
-      <h2>Weather Briefing</h2>
-      <p style={{ marginTop: 4, opacity: 0.8 }}>
-        Get current METAR observations and TAF forecasts for your route. Add departure, destination, and alternates.
-      </p>
+    <div style={{ background: '#f8fafc', minHeight: '100vh', padding: '32px 24px' }}>
+      <div style={{ maxWidth: 1600, margin: '0 auto' }}>
+        {/* Page Header */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{
+            display: 'inline-block',
+            background: 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)',
+            padding: '6px 14px',
+            borderRadius: 999,
+            marginBottom: 12,
+            fontSize: 12,
+            fontWeight: 700,
+            color: '#1e40af',
+          }}>
+            🌤️ Weather Briefing
+          </div>
+          <h2 style={{ fontSize: 36, fontWeight: 900, color: '#1e293b', marginBottom: 8 }}>Weather Briefing</h2>
+          <p style={{ fontSize: 16, color: '#64748b', maxWidth: 700 }}>
+            Get current METAR observations and TAF forecasts for your route. Add departure, destination, and alternates.
+          </p>
+        </div>
 
-      {/* Add Airport */}
-      <div
-        style={{
-          marginTop: 16,
-          padding: 16,
-          borderRadius: 12,
-          background: '#eff6ff',
-          border: '1px solid #93c5fd',
-        }}
-      >
+        {/* Add Airport */}
+        <div
+          style={{
+            marginBottom: 24,
+            padding: 20,
+            borderRadius: 16,
+            background: '#fff',
+            border: '2px solid #e2e8f0',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          }}
+        >
         <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8 }}>
           🌤️ Add Airport to Briefing
         </div>
@@ -1176,6 +1193,7 @@ export default function WeatherPage() {
         </div>
       )}
 
+      </div>
     </div>
   );
 }
